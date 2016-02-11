@@ -45,6 +45,7 @@ void print_usage(void) {
 bool send_command_callback(MotorCmd::Request  &request,
                            MotorCmd::Response &respond) {
   jrcomm_send_chassis_command(request.x_spd, request.y_spd, request.w_spd);
+  return true;
 }
 
 int main(int argc, char **argv) {
@@ -82,7 +83,8 @@ int main(int argc, char **argv) {
   while(ros::ok()) {
     chassis_info_pub.publish(chassis_info_msg);
 
-    jrcomm_send_chassis_command(1, 2, 3);
+    // Debug testing
+    //jrcomm_send_chassis_command(1, 2, 3);
 
     ros::spinOnce();
     loop_rate.sleep();
