@@ -18,7 +18,6 @@ INFO_TOF = 0,
 INFO_MOTOR  = 1,
 } info_type;
 
-
 typedef __packed struct
 {
 uint8_t ctrl_mode;      /**< chassis control mode */
@@ -45,8 +44,6 @@ float pos_d;
 uint8_t sw_l;           /**< left limit switch */
 uint8_t sw_r;           /**< right limit switch */
 } chassis_info_t;
-
-
 
 void data_handle(uint8_t* protocol_packet) {
   frame_header_t *p_header = (frame_header_t *)p_frame;
@@ -106,7 +103,7 @@ void *jrcom_recv_thread(void *argu) {
       switch (unpack_step) {
         case STEP_HEADER_SOF:
         {
-          if(byte == CHASSIS_INFO)
+          if(byte == UP_REG_ID)
           {
             unpack_step = STEP_LENGTH_LOW;
             protocol_packet[index++] = byte;
