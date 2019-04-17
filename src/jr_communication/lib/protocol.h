@@ -28,7 +28,8 @@
 #ifndef __PROTOCOL_H__
 #define __PROTOCOL_H__
 
-#include "stm32f4xx_hal.h"
+#include <stdint.h>
+#include <stddef.h>
 
 #define UP_REG_ID    0xA0  //up layer regional id
 #define DN_REG_ID    0xA5  //down layer regional id
@@ -41,7 +42,7 @@
 /** 
   * @brief  frame header structure definition
   */
-typedef __packed struct
+typedef struct __attribute__((__packed__))
 {
   uint8_t  sof;
   uint16_t data_length;
@@ -54,6 +55,5 @@ uint8_t verify_crc16_check_sum(uint8_t* pchMessage, uint32_t dwLength);
 
 void append_crc8_check_sum(uint8_t* pchMessage, uint16_t dwLength);
 void append_crc16_check_sum(uint8_t* pchMessage, uint32_t dwLength);
-
 
 #endif

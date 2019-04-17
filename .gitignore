@@ -1,6 +1,7 @@
 devel/
 logs/
 build/
+install/
 bin/
 lib/
 msg_gen/
@@ -49,6 +50,8 @@ qtcreator-*
 
 # Catkin custom files
 CATKIN_IGNORE
+.catkin_workspace
+.catkin_tools
 
 # VSCode
 .vscode

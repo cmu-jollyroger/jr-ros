@@ -51,16 +51,6 @@ typedef enum
 
 typedef struct
 {
-  UART_HandleTypeDef *huart;
-  fifo_s_t           *data_fifo;
-  uint16_t           buff_size;
-  uint8_t            *buff[2];
-  uint16_t           read_index;
-  uint16_t           write_index;
-} uart_dma_rxdata_t;
-
-typedef struct
-{
   fifo_s_t       *data_fifo;
   frame_header_t *p_header;
   uint16_t       data_len;
@@ -71,11 +61,7 @@ typedef struct
 
 uint8_t* protocol_packet_pack(uint16_t cmd_id, uint8_t *p_data, uint16_t len, uint8_t sof, uint8_t *tx_buf);
 
-/* dma double_buffer data puts to unpack_buffer */
-void dma_buffer_to_unpack_buffer(uart_dma_rxdata_t *dma_obj, uart_it_type_e it_type);
-
 void unpack_fifo_data(unpack_data_t *p_obj, uint8_t sof);
-
 
 uint32_t send_packed_fifo_data(fifo_s_t *pfifo, uint8_t sof);
 
