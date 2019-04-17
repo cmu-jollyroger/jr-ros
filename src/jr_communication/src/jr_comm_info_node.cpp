@@ -10,6 +10,7 @@
 ros::Publisher chassis_info_pub;
 ros::Publisher tof_info_pub;
 ros::Publisher motor_pid_info_pub;
+ros::Publisher switch_info_pub;
 #define MSG_QUEUE_SIZE (1)
 
 typedef enum
@@ -80,6 +81,11 @@ void data_handle(uint8_t* protocol_packet) {
     motor_pid_msg.pos_i = chassis_info->pos_i;
     motor_pid_msg.pos_d = chassis_info->pos_d;
     tof_info_pub.publish(motor_pid_msg);
+
+    Info_package::Switch_info switch_msg;
+    switch_msg.sw_l = chassis_info->sw_l;
+    switch_msg.sw_r = chassis_info->sw_r;
+    switch_info_pub.publish(switch_msg);
   }
 }
 
@@ -217,6 +223,8 @@ int main(int argc, char **argv) {
           "jr_tof", MSG_QUEUE_SIZE);
   motor_pid_info_pub = node.advertise<Info_package::Motor_PID_info>(
           "jr_motor_pid", MSG_QUEUE_SIZE);
+  switch_info_pub = node.advertise<Info_package::Switch_info>(
+          "jr_switch", MSG_QUEUE_SIZE);
 
 
   // Running at 10Hz
