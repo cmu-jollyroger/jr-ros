@@ -28,7 +28,6 @@
 #ifndef __COMMUNICATE_H__
 #define __COMMUNICATE_H__
 
-#include "stm32f4xx_hal.h"
 #include "data_fifo.h"
 #include "protocol.h"
 
