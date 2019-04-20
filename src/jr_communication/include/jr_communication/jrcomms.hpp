@@ -24,7 +24,15 @@ typedef enum {
 
 int jrcomm_init(char *tty_path);
 
+/**
+ * @brief Sends chassis command to microcontroller.
+ */
 void jrcomm_send_chassis_command(int16_t vx, int16_t vy, float w_spd);
+
+/**
+ * @brief Sends chassis configuration such as PID and wheel/track distances.
+ */
+void jrcomm_send_chassis_config(infantry_structure_t config);
 
 void *jrcom_recv_thread(void *argu);
 

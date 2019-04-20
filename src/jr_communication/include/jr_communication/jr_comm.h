@@ -173,10 +173,16 @@ typedef struct __attribute__((__packed__))
   */
 typedef struct __attribute__((__packed__))
 {
-  struct_config_e  chassis_config;  /* chassis structure config state */
+  uint16_t         chassis_config;  /* chassis structure config state */
   uint16_t         wheel_perimeter; /* the perimeter(mm) of wheel */
   uint16_t         wheel_track;     /* wheel track distance(mm) */
   uint16_t         wheel_base;      /* wheelbase distance(mm) */
+  float            pid_vel_p;
+  float            pid_vel_i;
+  float            pid_vel_d;
+  float            pid_pos_p;
+  float            pid_pos_i;
+  float            pid_pos_d;
 } infantry_structure_t;
 
 /********* variables **********/

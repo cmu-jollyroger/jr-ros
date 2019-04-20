@@ -20,6 +20,17 @@ using namespace jr_communication;
 #define UART_BUFF_SIZE (1000)
 #define COMPUTER_FRAME_BUFLEN UART_BUFF_SIZE
 
+/* Chassis information */
+#define PID_VEL_P (0.05f)
+#define PID_VEL_I (0.01f)
+#define PID_VEL_D (0.1f)
+#define PID_POS_P (0.1f)
+#define PID_POS_I (0.0f)
+#define PID_POS_D (0.0f)
+#define CHASSIS_WHEEL_PERIMETER (3.14 * 100) // mm
+#define CHASSIS_WHEEL_TRACK (500) // mm
+#define CHASSIS_WHEEL_BASE  (550) // mm
+
 int tty_fd;
 
 /* UART receive buffer */
@@ -69,6 +80,22 @@ int main(int argc, char **argv) {
     printf("[failed]: jrcomm_init()\n");
     return -2;
   }
+
+  // Send initial chassis configuration
+  infantry_structure_t config = {
+    .chassis_config = CUSTOM_CONFIG,
+    .wheel_perimeter = CHASSIS_WHEEL_PERIMETER,
+    .wheel_track = CHASSIS_WHEEL_TRACK,
+    .wheel_base = CHASSIS_WHEEL_BASE,
+    .pid_vel_p = PID_VEL_P,
+    .pid_vel_i = PID_VEL_I,
+    .pid_vel_d = PID_VEL_D,
+    .pid_pos_p = PID_POS_P,
+    .pid_pos_i = PID_POS_I,
+    .pid_pos_d = PID_POS_D
+  };
+  jrcomm_send_chassis_config(config);
+  printf("sent chassis config data\n");
 
   pthread_create(&comm_thread, NULL, jrcom_recv_thread, NULL);
 

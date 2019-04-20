@@ -349,3 +349,9 @@ void jrcomm_send_chassis_command(int16_t vx, int16_t vy, float w_spd) {
           CHASSIS_CTRL_ID, (uint8_t *)&control, sizeof(control));
   jrcomm_transmit((char *)computer_tx_buf, packed_size);
 }
+
+void jrcomm_send_chassis_config(infantry_structure_t config) {
+  int packed_size = data_pack_handle(
+    INFANTRY_STRUCT_ID, (uint8_t *)&config, sizeof(config));
+  jrcomm_transmit((char *)computer_tx_buf, packed_size);
+}
