@@ -9,6 +9,7 @@
 #include "protocol.h"
 #include "communicate.h"
 #include "jrcomms.hpp"
+#include <string>
 #include <pthread.h>
 #include <std_msgs/String.h>
 #include <jr_communication/ChassisInfo.h>
@@ -21,13 +22,13 @@ using namespace jr_communication;
 #define COMPUTER_FRAME_BUFLEN UART_BUFF_SIZE
 
 /* Chassis information */
-#define PID_VEL_P (0.05f)
-#define PID_VEL_I (0.01f)
-#define PID_VEL_D (0.1f)
+#define PID_VEL_P (0.1f)
+#define PID_VEL_I (0.04f)
+#define PID_VEL_D (0.14f)
 #define PID_POS_P (0.1f)
 #define PID_POS_I (0.0f)
 #define PID_POS_D (0.0f)
-#define CHASSIS_WHEEL_PERIMETER (3.14 * 100) // mm
+#define CHASSIS_WHEEL_PERIMETER (314) // mm
 #define CHASSIS_WHEEL_TRACK (500) // mm
 #define CHASSIS_WHEEL_BASE  (550) // mm
 
@@ -50,7 +51,7 @@ typedef enum
 } info_type;
 
 void print_usage(void) {
-  printf("usage: rosrun jr_comm_node\n");
+  printf("usage: rosrun jr_comm_node tty_path <spd_p> <spd_i> <spd_d>\n");
 }
 
 bool send_command_callback(MotorCmd::Request  &request,
@@ -81,15 +82,16 @@ int main(int argc, char **argv) {
     return -2;
   }
 
+  //fprintf(stderr, "vel_p = %.5f", std::stof(argv[2], NULL));
   // Send initial chassis configuration
   infantry_structure_t config = {
     .chassis_config = CUSTOM_CONFIG,
     .wheel_perimeter = CHASSIS_WHEEL_PERIMETER,
     .wheel_track = CHASSIS_WHEEL_TRACK,
     .wheel_base = CHASSIS_WHEEL_BASE,
-    .pid_vel_p = PID_VEL_P,
-    .pid_vel_i = PID_VEL_I,
-    .pid_vel_d = PID_VEL_D,
+    .pid_vel_p = argc > 4 ? std::stof(argv[2], NULL) : PID_VEL_P,
+    .pid_vel_i = argc > 4 ? std::stof(argv[3], NULL) : PID_VEL_I,
+    .pid_vel_d = argc > 4 ? std::stof(argv[4], NULL) : PID_VEL_D,
     .pid_pos_p = PID_POS_P,
     .pid_pos_i = PID_POS_I,
     .pid_pos_d = PID_POS_D
@@ -104,8 +106,8 @@ int main(int argc, char **argv) {
 
   comm_serv = node.advertiseService("jr_comm_cmd", send_command_callback);
 
-  // Running at 10Hz
-  ros::Rate loop_rate(10);
+  // Running at 5Hz
+  ros::Rate loop_rate(5);
 
   while(ros::ok()) {
     chassis_info_pub.publish(chassis_info_msg);

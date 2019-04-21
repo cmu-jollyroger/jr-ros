@@ -190,12 +190,6 @@ static void data_handle(uint8_t *p_frame) {
     chassis_info_msg.y_spd = chassis_info->y_spd;
     chassis_info_msg.x_position = chassis_info->x_position;
     chassis_info_msg.y_position = chassis_info->y_position;
-    chassis_info_msg.spd_p = 0;
-    chassis_info_msg.spd_i = 0;
-    chassis_info_msg.spd_d = 0;
-    chassis_info_msg.pos_p = 0;
-    chassis_info_msg.pos_i = 0;
-    chassis_info_msg.pos_d = 0;
     chassis_info_msg.dist0 = chassis_info->tof_0;
     chassis_info_msg.dist1 = chassis_info->tof_1;
     chassis_info_msg.dist2 = chassis_info->tof_2;

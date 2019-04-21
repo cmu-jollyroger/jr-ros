@@ -2,12 +2,6 @@ int8 x_spd
 int8 y_spd
 int8 x_position
 int8 y_position
-float32 spd_p
-float32 spd_i
-float32 spd_d
-float32 pos_p
-float32 pos_i
-float32 pos_d
 int16 dist0
 int16 dist1
 int16 dist2
