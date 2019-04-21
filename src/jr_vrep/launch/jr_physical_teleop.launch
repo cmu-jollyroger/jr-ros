@@ -1,0 +1,17 @@
+<launch>
+
+  <arg name="scale_linear" default="1"/>
+  <arg name="scale_angular" default="1"/>
+
+  <node name="jr_joy_node1" pkg="jr_vrep" type="jr_joy_node.py">
+    <param name="scale_linear" value="$(arg scale_linear)" />
+    <param name="scale_angular" value="$(arg scale_angular)" />
+  </node>
+
+  <node name="joy_node1" pkg="joy" type="joy_node">
+  </node>
+  
+  <node name="jr_comm_node1" pkg="jr_communication" type="jr_communication_node" args="/dev/ttyUSB0">
+  </node>
+
+</launch>
