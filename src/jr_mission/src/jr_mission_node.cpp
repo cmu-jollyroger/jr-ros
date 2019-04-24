@@ -5,11 +5,13 @@
  * @brief This is Houston.
  */
 
+#include <string>
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/Pose.h>
 #include <pthread.h>
+#include "parser.hpp"
 
 #define MSG_QUEUE_SIZE (1)
 

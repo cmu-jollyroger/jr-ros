@@ -1,0 +1,10 @@
+# Service Type for ShipBot arm operations
+# dev_type: Type of device being manipulated
+int8 dev_type
+# dev_id: Used to encode which component of a device (for breaker)
+int8 dev_id
+---
+# dev_ori: Orientation of device rotation plane (if applicable)
+int8 dev_ori
+# pose: Pose of device frame to reach to
+geometry_msgs/Pose pose

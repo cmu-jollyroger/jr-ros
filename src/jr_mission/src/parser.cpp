@@ -7,6 +7,8 @@
 
 #include "parser.hpp"
 
+int Task::task_counter = 0;
+
 Task::Task(enum StationID station) {
     task_id = task_counter++;
 }

@@ -1,0 +1,4 @@
+# Service parameters for chassis locomotion control
+int8 station
+---
+int64 status

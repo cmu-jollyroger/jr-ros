@@ -5,29 +5,25 @@
  * @brief Mission file parser interface
  */
 
-enum StationID {
-    STATION_A,
-    STATION_B,
-    STATION_C,
-    STATION_D,
-    STATION_E,
-    STATION_F,
-    STATION_G,
-    STATION_H
-};
+#ifndef __PARSER_HPP__
+#define __PARSER_HPP__
+
+#include "jr_common.h"
 
 // TODO: more task related stuff here
 // TODO: add hard-coded station map coordinate dict
 
+/**
+ * @brief Task is the class for each 
+ */
 class Task
 {
 private:
     int task_id;
 
 public:
+    /** @brief Class static counter for counter ID */
     static int task_counter;
-
-    
 
     enum StationID station;
 
@@ -37,4 +33,6 @@ public:
      * @brief Returns ID of the task
      */
     int getTaskID();
-}
+};
+
+#endif /* __PARSER_HPP__ */

@@ -1,0 +1,15 @@
+AV1 175, BV2 110, CV1 50, DA B1 U, EV3 0, GV3 1, HB B1 U, 360
+
+
+distance for 3
+(z, 65 tp 67, )
+
+y  = 69-47
+
+x = -3 cm
+
+4: y = 69 - 47
+
+z 67
+
+x = - 2

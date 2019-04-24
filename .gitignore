@@ -54,3 +54,7 @@ CATKIN_IGNORE
 
 # VSCode
 .vscode
+
+# Python ignore files
+*.pyc
+*.npy
