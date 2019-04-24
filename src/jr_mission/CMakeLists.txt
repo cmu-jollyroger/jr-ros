@@ -50,11 +50,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  ArmCommand.msg
-  LocomotionCommand.msg
-)
+# add_message_files(
+#   FILES
+#   ArmCommand.msg
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -106,7 +105,7 @@ add_message_files(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include/jr_common
 #  LIBRARIES jr_mission
 #  CATKIN_DEPENDS roscpp roslaunch rospy std_msgs
 #  DEPENDS system_lib

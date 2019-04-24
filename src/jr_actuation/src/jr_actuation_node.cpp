@@ -8,34 +8,55 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Quaternion.h>
-#include <pthread.h>
-#include "mecanum_ctrl.hpp"
+#include <jr_communication/MotorCmd.h>
+#include <jr_actuation/LocomotionCmd.h>
+#include "jr_common.h"
+
+using namespace jr_actuation;
 
 #define MSG_QUEUE_SIZE (1)
 
-int16_t motor_vels[4];
-ros::Publisher motor_vel_pub;
+enum GuideRail currentRail = DEFAULT_RAIL;
 
 void print_usage(void) {
-  printf("usage: rosrun jr_actuation actuation\n");
+  printf("usage: rosrun jr_actuation jr_acturation_node\n");
 }
 
-void lwheel_vtarget_callback(geometry_msgs::Twist vtarget) {
-    mecanum_calc(
-      vtarget.linear.x, vtarget.linear.y, vtarget.angular.z, motor_vels);
+/**
+ * @brief Runs forward into wall until both limit switches are depressed,
+ *        then move back a bit, making robot parallel to the wall
+ */
+void calibateAgainstWall() {
 
-    // Publish command velocities for motors
-    geometry_msgs::Quaternion motor_vel_msg;
-    motor_vel_msg.x = motor_vels[MOTOR_FR];
-    motor_vel_msg.y = motor_vels[MOTOR_FL];
-    motor_vel_msg.z = motor_vels[MOTOR_BL];
-    motor_vel_msg.w = motor_vels[MOTOR_BR];
-    motor_vel_pub.publish(motor_vel_msg);
+}
+
+/**
+ * @brief Runs towards right until right TOF is within good range
+ */
+void locomoteFromLongToShort() {
+
+}
+
+void locomoteFromShortToLong() {
+
+}
+
+/**
+ * Callback for locomotion command (go to which station)
+ */
+bool locomotion_cmd_callback(LocomotionCmd::Request &request,
+                             LocomotionCmd::Response *response) {
+  if (GET_STATION_RAIL(request.station) == currentRail) {
+    // no need to move to other rail
+  } else {
+    // need to move to the other rail
+    if (currentRail == RAIL_LONG) { locomoteFromLongToShort(); }
+    else { locomoteFromShortToLong(); }
+  }
 }
 
 int main(int argc, char **argv) {
     int err;
-    pthread_t comm_thread;
 
     if (argc < 1) {
         print_usage();
@@ -48,15 +69,15 @@ int main(int argc, char **argv) {
 
     ros::NodeHandle node;
 
-    motor_vel_pub = node.advertise<geometry_msgs::Quaternion>(
-      "jr_motor_vel", MSG_QUEUE_SIZE);
+    // motor_vel_pub = node.advertise<geometry_msgs::Quaternion>(
+    //   "jr_cmd_vel", MSG_QUEUE_SIZE);
 
     /*
      * Topic : jr_cmd_vel
      * Type  : geometry_msgs/Twist
      */
-    ros::Subscriber sub = node.subscribe(
-      "jr_cmd_vel", MSG_QUEUE_SIZE, lwheel_vtarget_callback);
+    // ros::Subscriber sub = node.subscribe(
+    //   "jr_cmd_vel", MSG_QUEUE_SIZE, lwheel_vtarget_callback);
 
     ROS_INFO("initialized actuation node");
 

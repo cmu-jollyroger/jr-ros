@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   roslaunch
   message_generation
+  jr_communication
+  jr_mission
 )
 
 ## System dependencies are found with CMake's conventions
@@ -70,10 +72,11 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -105,9 +108,9 @@ add_service_files(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+ INCLUDE_DIRS include
 #  LIBRARIES actuation
-#  CATKIN_DEPENDS geometry_msgs roscpp std_msgs
+ CATKIN_DEPENDS geometry_msgs roscpp std_msgs
 #  DEPENDS system_lib
 )
 
@@ -137,7 +140,6 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 set(ACTUATION_SRC
   src/jr_actuation_node.cpp
-  src/mecanum_ctrl.cpp
 )
 
 add_executable(${PROJECT_NAME}_node ${ACTUATION_SRC})
@@ -151,6 +153,11 @@ add_executable(${PROJECT_NAME}_node ${ACTUATION_SRC})
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_node
+        ${catkin_EXPORTED_TARGETS}
+        ${PROJECT_NAME}_generate_messages_cpp
+        jr_communication_generate_messages_cpp
+)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
