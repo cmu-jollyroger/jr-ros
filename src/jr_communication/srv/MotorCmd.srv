@@ -4,5 +4,6 @@ int16   y_spd
 int16   x_offset
 int16   y_offset
 float32 w_spd
+int8 reset
 ---
 int64 sum

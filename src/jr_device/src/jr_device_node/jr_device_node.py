@@ -25,12 +25,12 @@ from jr_device.srv import PoseCmd
 depthScale = 0
 fx = 0
 fy = 0
-
-lines = ""
-
-
-mission_task_global = 0
-
+align = None
+pipe = None
+clipping_distance = 1
+inner_clipping_distance = 1
+special_station_offset = 0
+depth_image = None
 
 def median_filter(img):
 
@@ -80,7 +80,7 @@ def find_closest_area(img):
 
 def translate_from_camera_to_arm_frame(x, y, z):
 
-	y = y + 54
+	y = y + 58
 	z = z - 22
 	x = x
 
@@ -93,7 +93,7 @@ def convert_x_y_value(x, y, z, w, h):
 	# z is in cm, focal is constant of conversion
 	centerY = y - w/2
 	print (h)
-	centerX = x - h/2
+	centerX = x - h/2 + special_station_offset
 
 	print (centerY)
 	print (centerX)
@@ -115,177 +115,144 @@ def convert_x_y_value(x, y, z, w, h):
 
 def device_orientation_wheel(image, depth_image):
 
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+	hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-    lower_blue = (100,100,100)
-    upper_blue = (130,255,255)
-
-
-    mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
-
-    result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
-
-    # convert image to grayscale image
-    rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
-    gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-
-    # convert the grayscale image to binary image
-    ret,thresh = cv2.threshold(gray_image,1,255,0)
-
-    plt.imshow(thresh)
-    plt.show()
-
-    # calculate moments of binary image
-    M = cv2.moments(thresh)
-     
-    # calculate x,y coordinate of center
-    cX1 = int(M["m10"] / M["m00"])
-    cY1 = int(M["m01"] / M["m00"])
+	lower_blue = (100,100,75)
+	upper_blue = (130,255,255)
 
 
-    image[:, 0:cY1 - 70] =  0
-    image[:, cY1 + 70:] =  0
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+	mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
 
-    #get white part centroid
-
-    light_white = (0, 0, 160)
-    dark_white = (100, 60, 255) 
-
-    lo_square = np.full((10, 10, 3), light_white, dtype=np.uint8) / 255.0
-    do_square = np.full((10, 10, 3), dark_white, dtype=np.uint8) / 255.0
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(hsv_to_rgb(do_square))
-    plt.subplot(1, 2, 2)
-    plt.imshow(hsv_to_rgb(lo_square))
-    plt.show()
-
-    mask = cv2.inRange(hsv_image, light_white, dark_white)
-
-    result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
-
-    rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
-    gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-
-    ret,thresh = cv2.threshold(gray_image,1,255,0)
-
-    plt.imshow(thresh)
-    plt.show()
+	result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
 
 
-    M = cv2.moments(thresh)
-     
-    # calculate x,y coordinate of center
-    cX2 = int(M["m10"] / M["m00"])
-    cY2 = int(M["m01"] / M["m00"])
+	# convert image to grayscale image
+	rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
+	gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+
+	# convert the grayscale image to binary image
+	ret,thresh = cv2.threshold(gray_image,1,255,0)
 
 
-    #look for green
-
-    print ("Looking for Green")
-
-    #modify hsv image
-    rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
-    rgb_image = rgb_image[cX1 - 50: cX1 + 50, :]
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+	# calculate moments of binary image
+	M = cv2.moments(thresh)
+	 
+	# calculate x,y coordinate of center
+	cX1 = int(M["m10"] / M["m00"])
+	cY1 = int(M["m01"] / M["m00"])
 
 
-    image[0:cX1 - 50, :] =  0
-    image[cX1 + 50:, :] =  0
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+	image[:, 0:cY1 - 70] =  0
+	image[:, cY1 + 70:] =  0
+	hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+
+	#get white part centroid
+
+	light_white = (0, 0, 160)
+	dark_white = (100, 60, 255) 
+
+	lo_square = np.full((10, 10, 3), light_white, dtype=np.uint8) / 255.0
+	do_square = np.full((10, 10, 3), dark_white, dtype=np.uint8) / 255.0
+
+
+	mask = cv2.inRange(hsv_image, light_white, dark_white)
+
+	result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
+
+
+	rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
+	gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+
+	ret,thresh = cv2.threshold(gray_image,1,255,0)
 
 
 
-    lower_green = (40,50,40)
-    upper_green = (70,255,255) # cv2.cvtColor(green,cv2.COLOR_BGR2HSV)
+	M = cv2.moments(thresh)
+	 
+	# calculate x,y coordinate of center
+	cX2 = int(M["m10"] / M["m00"])
+	cY2 = int(M["m01"] / M["m00"])
 
 
-    lo_square = np.full((10, 10, 3), lower_green, dtype=np.uint8) / 255.0
-    do_square = np.full((10, 10, 3), upper_green, dtype=np.uint8) / 255.0
+	#look for green
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(hsv_to_rgb(do_square))
-    plt.subplot(1, 2, 2)
-    plt.imshow(hsv_to_rgb(lo_square))
-    plt.show()
+	print ("Looking for Green")
 
-    mask = cv2.inRange(hsv_image, lower_green, upper_green)
-
-    result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
-
-    rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
-    gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-
-    ret,thresh = cv2.threshold(gray_image,1,255,0)
-
-    plt.imshow(thresh)
-    plt.show()
-     
-    # calculate moments of binary image
-    M = cv2.moments(thresh)
-     
-    # calculate x,y coordinate of center
-    #cX3 = int(M["m10"] / M["m00"])
-    #cY3 = int(M["m01"] / M["m00"])
+	#modify hsv image
+	rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
+	rgb_image = rgb_image[cX1 - 50: cX1 + 50, :]
+	hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
 
-    print ("Centroids")
-
-    print (cX1)
-    print (cY1)
-    print (cX2)
-    print (cY2)
-    #print (cX3)
-    #print (cY3)
+	image[0:cX1 - 50, :] =  0
+	image[cX1 + 50:, :] =  0
+	hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
 
-    #myradians = math.atan2(cX3-cX1, cY3-cY1)
 
-    #mydegrees = math.degrees(myradians)
-
-    print ("DEGREES")
-    #print (mydegrees)
+	lower_green = (40,50,40)
+	upper_green = (70,255,255) # cv2.cvtColor(green,cv2.COLOR_BGR2HSV)
 
 
-    depth = depth_image[cX1, cY1]
-    print (depth)
-
-    _, _, depth = find_closest_area(depth_image[cX1- 50: cX1 + 50, cY1 - 50:cY1 + 50])
-
-    depth = depth * depthScale * 100
-
-    print (depth)
-
-    w, h = depth_image.shape
-
-    x, y = convert_x_y_value(cX1, cY1, depth, w, h)
-
-    dist = math.hypot(cX2 - cX1, cY2 - cY1)
-    orientation = 0
-    if (dist > 80):
-    	orientation = 1
+	lo_square = np.full((10, 10, 3), lower_green, dtype=np.uint8) / 255.0
+	do_square = np.full((10, 10, 3), upper_green, dtype=np.uint8) / 255.0
 
 
-    return x, y, depth, orientation
+	mask = cv2.inRange(hsv_image, lower_green, upper_green)
+
+	result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
+
+	rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
+	gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+
+	ret,thresh = cv2.threshold(gray_image,1,255,0)
+
+	# calculate moments of binary image
+	M = cv2.moments(thresh)
+	 
+	# calculate x,y coordinate of center
+	#cX3 = int(M["m10"] / M["m00"])
+	#cY3 = int(M["m01"] / M["m00"])
+
+
+	print ("Centroids")
+
+	print (cX1)
+	print (cY1)
+	print (cX2)
+	print (cY2)
+	#print (cX3)
+	#print (cY3)
+
+
+	#myradians = math.atan2(cX3-cX1, cY3-cY1)
+
+	#mydegrees = math.degrees(myradians)
+
+	print ("DEGREES")
+	#print (mydegrees)
+
+
+	depth = depth_image[cX1, cY1]
+	print (depth)
+
+	_, _, depth = find_closest_area(depth_image[cX1- 50: cX1 + 50, cY1 - 50:cY1 + 50])
+
+	depth = depth * depthScale * 100
+
+	print (depth)
+
+	w, h = depth_image.shape
+
+	x, y = convert_x_y_value(cX1, cY1, depth, w, h)
+
+	dist = cY2 - cY1
+	orientation = 0
+	if (dist > 80):
+		orientation = 1
+
+
+	return x, y, depth, orientation
 
 
 
@@ -293,27 +260,16 @@ def device_orientation_wheel(image, depth_image):
 def device_orientation_shuttle(image):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-    lower_blue = (100,130,100)
+    lower_blue = (100,130,75)
     upper_blue = (130,255,255)
 
     lo_square = np.full((10, 10, 3), lower_blue, dtype=np.uint8) / 255.0
     do_square = np.full((10, 10, 3), upper_blue, dtype=np.uint8) / 255.0
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(hsv_to_rgb(do_square))
-    plt.subplot(1, 2, 2)
-    plt.imshow(hsv_to_rgb(lo_square))
-    plt.show()
-
     mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
 
     result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
 
     rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
     gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
@@ -344,21 +300,9 @@ def device_orientation_shuttle(image):
     lo_square = np.full((10, 10, 3), light_white, dtype=np.uint8) / 255.0
     do_square = np.full((10, 10, 3), dark_white, dtype=np.uint8) / 255.0
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(hsv_to_rgb(do_square))
-    plt.subplot(1, 2, 2)
-    plt.imshow(hsv_to_rgb(lo_square))
-    plt.show()
-
     mask = cv2.inRange(hsv_image, light_white, dark_white)
 
     result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
 
     rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
     gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
@@ -395,8 +339,21 @@ def device_orientation_shuttle(image):
     x, y = convert_x_y_value(cX1, cY1, depth, w, h)
 
     orientation = 0
-    if (abs(pipes[0][1] - pipes[0][1]) <= 20):
+    if ((abs(pipes[0][1] - pipes[1][1]) <= 20) and (abs(pipes[0][0] - pipes[1][0]) > 120)):
     	orientation = 1
+
+    #closed
+    pos = 1
+    #open
+    if (orientation == 1 and (max(pipes[0][1] - pipes[1][1]) - y) > 30):
+        pos = 0
+
+    if (orientation == 0 and abs((pipes[0][0] + pipes[1][0])/2 - x) <= 30):
+        pos = 0
+
+    print ("Position")
+    print (pos)
+
 
 
     return x, y, depth, orientation
@@ -419,21 +376,12 @@ def device_orientation_breaker(image, switchNum):
 
     result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
 
-    plt.subplot(1, 2, 1)
-    plt.imshow(mask, cmap="gray")
-    plt.subplot(1, 2, 2)
-    plt.imshow(result)
-    plt.show()
-
     # convert image to grayscale image
     rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
     gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
 
     # convert the grayscale image to binary image
     ret,thresh = cv2.threshold(gray_image,1,255,0)
-
-    plt.imshow(thresh)
-    plt.show()
 
     # calculate moments of binary image
     im2, contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -479,6 +427,13 @@ def device_orientation_breaker(image, switchNum):
 
 
 def run_pose_detection():
+	global pipe
+	global fx
+	global fy
+	global align
+	global clipping_distance
+	global inner_clipping_distance
+	global depthScale
 	# Declare pointcloud object, for calculating pointclouds and texture mappings
 	pc = rs.pointcloud()
 	# We want the points object to be persistent so we can display the last cloud when a frame drops
@@ -494,51 +449,53 @@ def run_pose_detection():
 
 	#Start streaming with default recommended configuration
 	
-	
-	profile = pipe.start(config)
+	try:
+		profile = pipe.start(config)
+
+		depth_sensor = profile.get_device().first_depth_sensor()
+		depth_scale = depth_sensor.get_depth_scale()
+		print("Depth Scale is: " , depth_scale)
+		depthScale = depth_scale
+
+		profile2 = pipe.get_active_profile()
+		depth_profile = rs.video_stream_profile(profile2.get_stream(rs.stream.depth))
+		depth_intrinsics = depth_profile.get_intrinsics()
+		w, h = depth_intrinsics.width, depth_intrinsics.height
+
+		fx, fy = depth_intrinsics.fx, depth_intrinsics.fy
 
 
-	depth_sensor = profile.get_device().first_depth_sensor()
-	depth_scale = depth_sensor.get_depth_scale()
-	print("Depth Scale is: " , depth_scale)
-	depthScale = depth_scale
-
-	profile2 = pipe.get_active_profile()
-	depth_profile = rs.video_stream_profile(profile2.get_stream(rs.stream.depth))
-	depth_intrinsics = depth_profile.get_intrinsics()
-	w, h = depth_intrinsics.width, depth_intrinsics.height
-
-	fx, fy = depth_intrinsics.fx, depth_intrinsics.fy
+		clipping_distance_in_meters = 1.1 #1 meter
+		inner_clipping_distance_in_meters = 0.5
+		clipping_distance = clipping_distance_in_meters / depth_scale
+		inner_clipping_distance = inner_clipping_distance_in_meters / depth_scale
+		
+		align_to = rs.stream.color
+		align = rs.align(align_to)
 
 
-	clipping_distance_in_meters = 1.1 #1 meter
-	inner_clipping_distance_in_meters = 0.5
-	clipping_distance = clipping_distance_in_meters / depth_scale
-	inner_clipping_distance = inner_clipping_distance_in_meters / depth_scale
-	
-	align_to = rs.stream.color
-	align = rs.align(align_to)
+		filename = sys.argv[-1]
+
+		f = open(filename,'r')
+		lines = f.readlines()
 
 
-	filename = sys.argv[-1]
-
-	f = open(filename,'r')
-	lines = f.readlines()
+		rospy.init_node('pose_detection_server')
+		s = rospy.Service('pose_srv', PoseCmd, detect_pose)
 
 
-	rospy.init_node('pose_detection_server')
-	s = rospy.Service('pose_srv', PoseCmd, detect_pose)
-
-
-	print "Ready for pose detection"
-	rospy.spin()
-
-	pipe.stop()
-	f.close()
+		print "Ready for pose detection"
+		rospy.spin()
+	finally:
+		pipe.stop()
+		f.close()
 
 
 def detect_pose(req):
 	types = req.dev_type
+	global depth_image
+	global special_station_offset
+	special_station_offset = 0
 
 	try:
 		frameset = pipe.wait_for_frames()
@@ -555,9 +512,13 @@ def detect_pose(req):
 		depth_image = np.asanyarray(depth_frame.get_data())
 		color_image = np.asanyarray(color_frame.get_data())
 
+		if (station == 4):
+			special_station_offset = 100
+		if (station == 5):
+			special_station_offset = -100
 
-		depth_image = depth_image[300:, 400:880]
-		color_image = color_image[300:, 400:880]
+		depth_image = depth_image[300:, 400+special_station_offset:880+special_station_offset]
+		color_image = color_image[300:, 400+special_station_offset:880+special_station_offset]
 		
 
 		print (depth_image.shape)
@@ -612,6 +573,11 @@ def detect_pose(req):
 	except Exception as e: 
 		print(e)
 		print('In EXCEPT!')
+		points = Point(0,0,0)
+		resp = pose_srvResponse()
+		resp.pose = points
+		resp.dev_ori = 1
+		return resp
 
 	print ("Processing .....")
 

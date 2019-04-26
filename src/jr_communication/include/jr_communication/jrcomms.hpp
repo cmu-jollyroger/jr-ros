@@ -34,6 +34,8 @@ void jrcomm_send_chassis_command(int16_t vx, int16_t vy, float w_spd);
  */
 void jrcomm_send_chassis_config(infantry_structure_t config);
 
+void jrcomm_send_chassis_reset(void);
+
 void *jrcom_recv_thread(void *argu);
 
 #endif /* __JRCOMMS_H__ */

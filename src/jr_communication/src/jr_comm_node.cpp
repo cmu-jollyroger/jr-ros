@@ -10,6 +10,7 @@
 #include "communicate.h"
 #include "jrcomms.hpp"
 #include <string>
+#include <signal.h>
 #include <pthread.h>
 #include <std_msgs/String.h>
 #include <jr_communication/ChassisInfo.h>
@@ -56,8 +57,18 @@ void print_usage(void) {
 
 bool send_command_callback(MotorCmd::Request  &request,
                            MotorCmd::Response &respond) {
+  if (request.reset != 0) {
+    jrcomm_send_chassis_reset();
+    return true;
+  }
+
   jrcomm_send_chassis_command(request.x_spd, request.y_spd, request.w_spd);
   return true;
+}
+
+void sigint_handler(int signal) {
+  jrcomm_send_chassis_command(0, 0, 0);
+  exit(0);
 }
 
 int main(int argc, char **argv) {
@@ -108,6 +119,8 @@ int main(int argc, char **argv) {
 
   // Running at 5Hz
   ros::Rate loop_rate(5);
+
+  // signal(SIGINT, sigint_handler);
 
   while(ros::ok()) {
     chassis_info_pub.publish(chassis_info_msg);

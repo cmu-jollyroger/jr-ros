@@ -349,3 +349,10 @@ void jrcomm_send_chassis_config(infantry_structure_t config) {
     INFANTRY_STRUCT_ID, (uint8_t *)&config, sizeof(config));
   jrcomm_transmit((char *)computer_tx_buf, packed_size);
 }
+
+void jrcomm_send_chassis_reset(void) {
+  global_err_level_t level;
+  int packed_size = data_pack_handle(
+    ERROR_LEVEL_ID, (uint8_t *)&level, sizeof(level));
+  jrcomm_transmit((char *)computer_tx_buf, packed_size);
+}
