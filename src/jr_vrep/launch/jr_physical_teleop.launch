@@ -9,6 +9,7 @@
   </node>
 
   <node name="joy_node1" pkg="joy" type="joy_node">
+    <param name="dev" value="/dev/input/js4" />
   </node>
   
   <node name="jr_comm_node1" pkg="jr_communication" type="jr_communication_node" args="/dev/ttyUSB0">

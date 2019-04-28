@@ -38,14 +38,15 @@ def chassis_cmd_client(data):
         x_offset = 0
         y_offset = 0
         w_spd = 50 * data.axes[0]
+        reset = 0
 
         # Translation
         x_spd += 400 * data.axes[5]
         y_spd += 400 * data.axes[4]
         #cmd = MotorCmd(ctrl_mode, x_spd, y_spd, x_offset, y_offset, w_spd)
-        p_cmd = [ctrl_mode, x_spd, y_spd, x_offset, y_offset, w_spd]
+        p_cmd = [ctrl_mode, x_spd, y_spd, x_offset, y_offset, w_spd, reset]
         print p_cmd
-        resp = jr_comm_proxy(ctrl_mode, x_spd, y_spd, x_offset, y_offset, w_spd)
+        resp = jr_comm_proxy(ctrl_mode, x_spd, y_spd, x_offset, y_offset, w_spd, reset)
         return resp
     except rospy.ServiceException, e:
         print "chassis service call failed: %s"%e
