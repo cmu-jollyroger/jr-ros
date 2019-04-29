@@ -45,7 +45,17 @@ int tof_F_prev = -1;
  * Last 3 are readings of L sensor (RAIL_SHORT)
  */
 int stationPositions[NUM_STATIONS] =
-  {1315, 1000, 558, 242, 10, 10, 260, 500};
+  {
+    1350,
+    1020,
+    590,
+    250,
+    10,
+
+    10,
+    200,
+    510
+  };
 
 int TOF_L_Reading; // left TOF reading
 int TOF_R_Reading; // right TOF reading
@@ -69,13 +79,13 @@ void chassis_reset() {
   jr_communication::MotorCmd cmd;
   cmd.request.reset = 1;
   vel_srv_client.call(cmd);
-  ROS_ERROR("--performed chassis reset");
+  ROS_INFO("--performed chassis reset");
   wait_ms(600);
   resetRequired = false;
 }
 
 void chassis_reset_if_required(void) {
-  if (resetRequired) chassis_reset();
+  ROS_ERROR("reset is masked: check connections");
 }
 
 void chassis_move_vel(geometry_msgs::Twist t) {
@@ -235,6 +245,8 @@ void slide_to_station(enum StationID s) {
         error = TOF_R_Reading - stationPositions[s];
         // go right if positive error
         tgt_vel.linear.y = error > 0 ? - TRANSLATION_SPD : TRANSLATION_SPD;
+        // keep chassis touching against guide rail
+        tgt_vel.linear.x = TRANSLATION_SPD / 4;
         chassis_move_vel(tgt_vel);
       } while (abs(error) > POS_TOLERANCE);
       chassis_stop();
@@ -248,6 +260,7 @@ void slide_to_station(enum StationID s) {
         error = stationPositions[s] - TOF_L_Reading;
         // go right if positive error
         tgt_vel.linear.y = error > 0 ? - TRANSLATION_SPD : TRANSLATION_SPD;
+        tgt_vel.linear.x = TRANSLATION_SPD / 4;
         chassis_move_vel(tgt_vel);
       } while (abs(error) > POS_TOLERANCE);
       chassis_stop();

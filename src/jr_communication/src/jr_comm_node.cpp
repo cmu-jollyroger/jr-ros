@@ -26,9 +26,9 @@ using namespace jr_communication;
 #define PID_VEL_P (0.1f)
 #define PID_VEL_I (0.04f)
 #define PID_VEL_D (0.14f)
-#define PID_POS_P (0.1f)
-#define PID_POS_I (0.0f)
-#define PID_POS_D (0.0f)
+#define PID_POS_P (3.0f)
+#define PID_POS_I (1.2f)
+#define PID_POS_D (0.4f)
 #define CHASSIS_WHEEL_PERIMETER (314) // mm
 #define CHASSIS_WHEEL_TRACK (500) // mm
 #define CHASSIS_WHEEL_BASE  (550) // mm

@@ -22,6 +22,8 @@
 #define UART_BUFF_SIZE (500)
 #define COMPUTER_FRAME_BUFLEN UART_BUFF_SIZE
 
+#define TOF_CALIB_RATIO (0.91)
+
 /* Chassis stats */
 send_pc_t mky_chassis_stats;
 
@@ -190,12 +192,12 @@ static void data_handle(uint8_t *p_frame) {
     chassis_info_msg.y_spd = chassis_info->y_spd;
     chassis_info_msg.x_position = chassis_info->x_position;
     chassis_info_msg.y_position = chassis_info->y_position;
-    chassis_info_msg.dist0 = chassis_info->tof_0;
-    chassis_info_msg.dist1 = chassis_info->tof_1;
-    chassis_info_msg.dist2 = chassis_info->tof_2;
-    chassis_info_msg.dist3 = chassis_info->tof_3;
-    chassis_info_msg.dist4 = chassis_info->tof_4;
-    chassis_info_msg.dist5 = chassis_info->tof_5;
+    chassis_info_msg.dist0 = chassis_info->tof_0 * TOF_CALIB_RATIO;
+    chassis_info_msg.dist1 = chassis_info->tof_1 * TOF_CALIB_RATIO;
+    chassis_info_msg.dist2 = chassis_info->tof_2 * TOF_CALIB_RATIO;
+    chassis_info_msg.dist3 = chassis_info->tof_3 * TOF_CALIB_RATIO;
+    chassis_info_msg.dist4 = chassis_info->tof_4 * TOF_CALIB_RATIO;
+    chassis_info_msg.dist5 = chassis_info->tof_5 * TOF_CALIB_RATIO;
     chassis_info_msg.sw_l = chassis_info->sw_l;
     chassis_info_msg.sw_r = chassis_info->sw_r;
   }
