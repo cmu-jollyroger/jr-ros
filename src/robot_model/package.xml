@@ -1,5 +1,5 @@
 <package>
-  <name>urdf_tutorial</name>
+  <name>robot_model</name>
   <version>0.4.0</version>
 
   <description>This package contains a number of URDF tutorials.</description>
