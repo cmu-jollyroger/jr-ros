@@ -8,8 +8,9 @@
 #ifndef __JR_COMMON_H__
 #define __JR_COMMON_H__
 
+#define NUM_STATIONS (8)
 #define DEFAULT_RAIL (RAIL_LONG)
-#define GET_STATION_RAIL(S) (S <= STATION_F ? RAIL_LONG : RAIL_SHORT)
+#define GET_STATION_RAIL(S) (S <= STATION_E ? RAIL_LONG : RAIL_SHORT)
 
 enum GuideRail {
   RAIL_LONG = 0,

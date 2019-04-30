@@ -59,6 +59,7 @@
   <exec_depend>std_msgs</exec_depend>
 
   <build_depend>jr_communication</build_depend>
+  <build_depend>jr_mission</build_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="jr_comm_node1" pkg="jr_communication" type="jr_communication_node" args="/dev/ttyUSB0">
+  </node>
+
+  <node name="actuation1" pkg="jr_actuation" type="jr_actuation_node">
+  </node>
+
+</launch>
