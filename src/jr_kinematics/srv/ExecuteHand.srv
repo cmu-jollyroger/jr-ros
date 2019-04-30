@@ -1,0 +1,9 @@
+# ExecuteHand.srv
+# BLOCKING SRV CALL
+# Step 3: execute end effector rotation or movement
+# rotation: Angle for which the end effector should rotate
+int64 rotation
+# delta_z: displacement for arm in z direction
+int64 delta_z
+---
+bool done

@@ -1,0 +1,8 @@
+# CorrectArm.srv
+# BLOCKING SRV CALL
+# Step 2: correct end effector position (delta)
+# delta_pose: use only xyz, cartesian offset for arm to move
+geometry_msgs/Pose delta_pose
+---
+# done: Correction trajectory execution status
+bool done 

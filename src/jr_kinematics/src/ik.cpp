@@ -1,66 +1,12 @@
 #include <ros/ros.h>
-#include <moveit/robot_model_loader/robot_model_loader.h>
 #include <boost/date_time.hpp>
-#include <trac_ik/trac_ik.hpp>
-#include <ros/ros.h>
-#include <kdl/chainiksolverpos_nr_jl.hpp>
-#include <kdl_parser/kdl_parser.hpp>
-#include <tf/transform_datatypes.h>
 #include <cmath>
 #include <chrono>
-#include <geometry_msgs/Pose.h>
-#include <tf/transform_broadcaster.h>
-#include <sensor_msgs/JointState.h>
-#include "hebi_cpp_api/lookup.hpp"
-#include "hebi_cpp_api/group_command.hpp"
-#include "hebi_cpp_api/group_feedback.hpp"
-#include <vector>
-#include <Eigen/Dense>
 #include "jr_common.h"
-#include "hebi_cpp_api/trajectory.hpp"
+#include "kinematics.h"
 
 using namespace std;
 using namespace hebi;
-
-class motion
-{
-public:
-	motion();
-	KDL::JntArray getIK(geometry_msgs::Pose target_pose);
-	KDL::Frame getFK(KDL::JntArray joints);
-	//bool exec_traj(geometry_msgs::Pose target_pose, int d_orient, int device);
-	bool exec_traj(geometry_msgs::Pose target_pose);
-	bool to_homing();
-	//bool hebi_send_command(Eigen::VectorXd pos);
-	Eigen::VectorXd hebi_feedback();
-
-	ros::Publisher joint_pub;
-	Eigen::VectorXd homing, waypoint;
-
-private: 
-	KDL::Chain chain;
-	std::string chain_start = "base_link";
-	std::string chain_end = "end_eff";
-	std::string urdf_param = "/robot_description";
-	double timeout = 0.06;
-	double eps = 1e-3;
-	KDL::JntArray result;
-	KDL::JntArray ll, ul; 
-	KDL::Twist tolerances; 
-  	
-	TRAC_IK::TRAC_IK *tracik_solver;
-	TRAC_IK::SolveType type=TRAC_IK::Distance;
-	ros::NodeHandle nh;
-	KDL::Tree my_tree;
-	std::string robot_desc_string;
-	std::vector<double> joint_angle_track;
-	
-
-	Lookup lookup;
-	std::shared_ptr<Group> group;
-
-
-};
 
 void check_jnts(Eigen::VectorXd jnts){
 	if ((jnts[0] <= -M_PI 			|| jnts[0] >= M_PI) 	||
@@ -73,7 +19,7 @@ void check_jnts(Eigen::VectorXd jnts){
 	}
 }
 
-motion::motion(){
+motion::motion(std::string robot_desc_string){
 	/* Start the broadcasting to the arm */
 	group = lookup.getGroupFromNames({ "JollyRoger Arm" }, {"Base", "Elbow-1", "Elbow-2", "EndEffector", "Jammer"});
 	if (!group)
@@ -86,7 +32,7 @@ motion::motion(){
 	//check_jnts(hebi_feedback());
 
 	/* Setup the IK */
-	joint_pub = nh.advertise<sensor_msgs::JointState>("/joint_states",10);
+	
 
 	// set joint upper and lower joint limits
 	ll.resize(5); ul.resize(5);
@@ -101,8 +47,6 @@ motion::motion(){
 	ll(3)=-3.14 ; ul(3)=3.14;
 	ll(4)=-3.14 ; ul(4)=3.14;
 
-	
-	nh.param("/robot_description", robot_desc_string, std::string());
 	if (!kdl_parser::treeFromString(robot_desc_string, my_tree)){
 		ROS_ERROR("Failed to construct kdl tree");
 	}
@@ -371,26 +315,25 @@ Eigen::VectorXd motion::hebi_feedback(){
 
 }
 
-
-
-
-
-
-
-
-
-
-
-
 int main(int argc, char **argv)
 {
+
+	ros::NodeHandle nh;
+
+	ros::Publisher joint_pub;
+
+	std::string robot_desc_string;
+	nh.param("/robot_description", robot_desc_string, std::string());
+
+	joint_pub = nh.advertise<sensor_msgs::JointState>("/joint_states",10);
+
 	/* code */
 	ros::init(argc, argv, "joint_state_publisher");
 
 	ros::start();
 	
 	// Check setup
-	motion ik; 
+	motion ik(robot_desc_string); 
 
 	geometry_msgs::Pose target; 
 

@@ -1,10 +1,16 @@
-# Target pose 
+# ExecuteArm.srv
+# BLOCKING SRV CALL
+# Step 1: approach the device with given transform and orientation
+# target_pose: Target pose for arm execution
 geometry_msgs/Pose target_pose
+# z_offset: Z offset for "gravity compensation"
+int64 z_offset
+# device_type: Type of device
 int64 device_type
+# device_orient: Whether device is facing front or up
 int64 device_orient
-int64 final_rot
+# initial_rot: Initial angle of end effector while approaching device
 int64 intial_rot
-
 ---
-# Trajectory has been executed
+# done: Trajectory execution status
 bool done 

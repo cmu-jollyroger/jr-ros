@@ -66,8 +66,9 @@ find_package(orocos_kdl REQUIRED)
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  CorrectZ.srv
   ExecuteArm.srv
+  CorrectArm.srv
+  ExecuteHand.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -132,7 +133,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${orocos_kdl_INCLUDE_DIRS}
   ${HEBI_CPP_API_INCLUDE_DIRS}
-
+  include/${PROJECT_NAME}
 )
 
 ## Declare a C++ library
