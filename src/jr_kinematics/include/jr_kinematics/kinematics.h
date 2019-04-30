@@ -31,7 +31,7 @@ public:
 	/* Get pose from joint angles */
 	KDL::Frame getFK(KDL::JntArray joints);
 	/* Execute traj */
-	bool exec_traj(geometry_msgs::Pose target_pose);
+	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot);
 	/* Goes to homing from current pos */
 	bool to_homing();
 	/* Reads in current joint angles */

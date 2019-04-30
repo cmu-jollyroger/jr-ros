@@ -201,14 +201,14 @@ bool motion::to_homing(){
 		return true;
 }
 
-bool motion::exec_traj(geometry_msgs::Pose target_pose){
+bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot){
 
 	// Define nan variable for readability below
 	printf("Executing Traj\n");
 	const double nan = std::numeric_limits<float>::quiet_NaN();
 	int num_joints =5;
-	int num_points=4;
-	
+	int num_points=3;
+	double jammer_rot = init_rot*M_PI/180;
 	KDL::JntArray target_position = getIK(target_pose);
 
 	bool homed = to_homing();
@@ -220,47 +220,28 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose){
 	Eigen::MatrixXd accelerations(num_joints,num_points);
 
 
-	// positions << current_position[0], waypoint(0), target_position(0),target_position(0),        
-	//              current_position[1], waypoint(1), target_position(1),target_position(1),
-	//              current_position[2], waypoint(2),  target_position(2),target_position(2),        
-	//              current_position[3], waypoint(3),  target_position(3),target_position(3),
-	//              current_position[4], waypoint(4),  target_position(4),target_position(4);
+	positions << current_position[0], homing(0),target_position(0),        
+             current_position[1], homing(1),target_position(1),
+             current_position[2], homing(2),target_position(2),        
+             current_position[3], homing(3),target_position(3),
+             current_position[4], jammer_rot,jammer_rot;
 
-	positions << current_position[0], homing(0), target_position(0),target_position(0),        
-             current_position[1], homing(1), target_position(1),target_position(1),
-             current_position[2], homing(2),  target_position(2),target_position(2),        
-             current_position[3], homing(3),  target_position(3),target_position(3),
-             current_position[4], homing(4),  target_position(4),target_position(4);
+	velocities << 0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0;
 
- 
-
-	// positions << current_position[0], homing(0), -1.33051, -1.33685,        
-	//              current_position[1], homing(1),0.981742,1.19396,
-	//              current_position[2], homing(2),  0.1042,  0.713121,        
-	//              current_position[3], homing(3), -2.15501,-1.78131;
-
-
-	// positions << current_position[0], homing(0), -1.48399, -1.48994,        
-	//              current_position[1], homing(1),1.76061, 1.58597,
-	//              current_position[2], homing(2),  2.12292,   2.01213,        
-	//              current_position[3], homing(3), 0.611477,0.676296;
-
-	velocities << 0, nan, nan, 0,
-	              0, nan, nan, 0,
-	              0, nan, nan, 0,
-	              0, nan, nan, 0,
-	              0, nan, nan, 0;
-
-	accelerations << 0,  nan, nan, 0,
-	                 0,  nan, nan, 0,
-	                 0,  nan, nan, 0,
-	              	 0,  nan, nan, 0,
-	              	 0,  nan, nan, 0;
+	accelerations << 0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0;
 
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
 	// time << 0, 15, 25, 33;
-	time << 0, 3, 15, 33;
+	time << 0, 3, 30;
 
 	// Define trajectory
 	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
@@ -369,7 +350,7 @@ int main(int argc, char **argv)
 	/* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
 	bloxk out if you just want to see IK result*/
 
-	bool done = ik.exec_traj(target);
+	bool done = ik.exec_traj(target, 0);
 	cout<<done<<endl;
 
 
