@@ -6,6 +6,7 @@
  */
 
 #include <ros/ros.h>
+#include <ros/console.h>
 #include <chrono>
 #include <thread>
 #include <signal.h>
@@ -24,20 +25,20 @@ using namespace jr_actuation;
 
 #define POS_TOLERANCE (15)
 #define MIN_DIST_TO_SWAP_RAIL (100)
-#define DESIRED_TO_GUIDERAIL_DIST (80)
+#define DESIRED_TO_GUIDERAIL_DIST (100) // mm
 #define TRANSLATION_SPD (200) // unit TBD
+
+typedef enum
+{
+  SPD_CTRL       = 0,
+  ENC_CTRL_X     = 1,
+  ENC_CTRL_Y     = 2,
+  ENC_CTRL_W     = 3
+} move_cmd_e;
 
 enum GuideRail currentRail = DEFAULT_RAIL;
 
 ros::ServiceClient vel_srv_client;
-
-int tof_L_timeout = 0;
-int tof_R_timeout = 0;
-int tof_F_timeout = 0;
-
-int tof_L_prev = -1;
-int tof_R_prev = -1;
-int tof_F_prev = -1;
 
 /**
  * Station Positions in terms of TOF reading
@@ -46,9 +47,9 @@ int tof_F_prev = -1;
  */
 int stationPositions[NUM_STATIONS] =
   {
-    1350,
-    1020,
-    590,
+    1300,
+    1000,
+    620,
     250,
     10,
 
@@ -62,10 +63,11 @@ int TOF_R_Reading; // right TOF reading
 int TOF_F_Reading; // front TOF reading
 int SW_L_State;    // left limit switch reading
 int SW_R_State;    // right limit switch reading
+int enc_exec_done; // whether encoder operation has finished
+
+enum StationID currentStation = STATION_A;
 
 bool executionInProgress = 0;
-
-bool resetRequired = false;
 
 void print_usage(void) {
   printf("usage: rosrun jr_actuation jr_acturation_node\n");
@@ -75,26 +77,24 @@ void wait_ms(int ms) {
   std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+/* Chassis commands: non-blocking */
+
 void chassis_reset() {
   jr_communication::MotorCmd cmd;
   cmd.request.reset = 1;
   vel_srv_client.call(cmd);
   ROS_INFO("--performed chassis reset");
   wait_ms(600);
-  resetRequired = false;
-}
-
-void chassis_reset_if_required(void) {
-  ROS_ERROR("reset is masked: check connections");
 }
 
 void chassis_move_vel(geometry_msgs::Twist t) {
-  // chassis_reset_if_required();
   jr_communication::MotorCmd cmd;
   cmd.request.ctrl_mode = 4; // don't care
+  cmd.request.move_cmd = SPD_CTRL;
   cmd.request.x_spd = t.linear.x;
   cmd.request.y_spd = t.linear.y;
   cmd.request.w_spd = t.angular.z;
+  cmd.request.reset = 0;
   if (vel_srv_client.call(cmd)) {
     wait_ms(10); // prevent fast loop
     return;
@@ -111,23 +111,80 @@ void chassis_stop(void) {
   chassis_move_vel(zeroTwist);
 }
 
+/* Encoder movement operations: blocking */
+
+void chassis_enc_move_x(int16_t dist_mm) {
+  jr_communication::MotorCmd cmd;
+  cmd.request.ctrl_mode = 4; // don't care
+  cmd.request.move_cmd = ENC_CTRL_X;
+  cmd.request.x_spd = dist_mm;
+  cmd.request.reset = 0;
+  if (vel_srv_client.call(cmd)) {
+    wait_ms(100);
+    while (!enc_exec_done) continue;
+    chassis_stop();
+  } else {
+    ROS_ERROR("chassis_enc_move_x failed");
+  }
+}
+
+void chassis_enc_move_y(int16_t dist_mm) {
+  jr_communication::MotorCmd cmd;
+  cmd.request.ctrl_mode = 4; // don't care
+  cmd.request.move_cmd = ENC_CTRL_Y;
+  cmd.request.y_spd = dist_mm;
+  cmd.request.reset = 0;
+  if (vel_srv_client.call(cmd)) {
+    wait_ms(100);
+    while (!enc_exec_done) continue;
+    chassis_stop();
+  } else {
+    ROS_ERROR("chassis_enc_move_y failed");
+  }
+}
+
+void chassis_enc_turn_degrees(int16_t degrees) {
+  /* Degrees in terms of vw */
+  jr_communication::MotorCmd cmd;
+  cmd.request.ctrl_mode = 4; // don't care
+  cmd.request.move_cmd = ENC_CTRL_W;
+  cmd.request.w_spd = degrees;
+  cmd.request.reset = 0;
+  if (vel_srv_client.call(cmd)) {
+    wait_ms(100);
+    while (!enc_exec_done) continue;
+    chassis_stop();
+  } else {
+    ROS_ERROR("chassis_enc_turn_degrees failed");
+  }
+}
+
+/* Primitive movement operations: blocking */
+
 /**
  * @brief Runs forward into wall until both limit switches are depressed,
  *        then move back a bit, making robot parallel to the wall
  */
-void calibrate_against_rail() {
-  // chassis_reset_if_required();
+void calibrate_against_rail(int speed) {
+  ROS_INFO("calibrate_against_rail()");
   geometry_msgs::Twist tgt_vel;
   tgt_vel.linear.y = tgt_vel.angular.z = 0;
-  tgt_vel.linear.x = TRANSLATION_SPD + 100;
+  tgt_vel.linear.x = speed;
   
+  /* Run forward until both limit switches are depressed */
   while (true) {
     wait_ms(10);
-    if (SW_L_State == 1 && SW_R_State == 1) break;
+    if ((SW_L_State == 1 || currentStation == STATION_A) &&
+        (SW_R_State == 1 || currentStation == STATION_H))
+    {
+      break;
+    }
     else { chassis_move_vel(tgt_vel); }
   }
   chassis_stop();
 
+  /* Move back, making robot parallel to the wall */
+  //chassis_enc_move_x(-DESIRED_TO_GUIDERAIL_DIST);
   if (currentRail == RAIL_LONG) {
     tgt_vel.linear.x = - TRANSLATION_SPD;
     tgt_vel.linear.y = TRANSLATION_SPD;
@@ -135,49 +192,26 @@ void calibrate_against_rail() {
     tgt_vel.linear.x = - TRANSLATION_SPD;
     tgt_vel.linear.y = - TRANSLATION_SPD;
   }
-
-  // int error;
-  // do
-  // {
-  //   error = TOF_F_Reading - DESIRED_TO_GUIDERAIL_DIST;
-  //   tgt_vel.linear.x = error > 0 ? - TRANSLATION_SPD : TRANSLATION_SPD;
-  //   tgt_vel.linear.y = error > 0 ? TRANSLATION_SPD : - TRANSLATION_SPD;
-  //   chassis_move_vel(tgt_vel);
-  // } while (abs(error) > POS_TOLERANCE);
   chassis_move_vel(tgt_vel);
-  wait_ms(1200);
+  wait_ms(500);
   chassis_stop();
 }
 
 void turn_right_90() {
-  // chassis_reset_if_required();
-  geometry_msgs::Twist tgt_vel;
-  tgt_vel.linear.x = tgt_vel.linear.y = 0;
-
-  tgt_vel.angular.z = - 300;
-
-  chassis_move_vel(tgt_vel);
-  wait_ms(2700);
-  chassis_stop();
+  ROS_INFO("turn_right_90()");
+  chassis_enc_turn_degrees(-90);
 }
 
 void turn_left_90() {
-  // chassis_reset_if_required();
-  geometry_msgs::Twist tgt_vel;
-  tgt_vel.linear.x = tgt_vel.linear.y = tgt_vel.angular.z = 0;
-
-  tgt_vel.angular.z = 300;
-
-  chassis_move_vel(tgt_vel);
-  wait_ms(2700);
-  chassis_stop();
+  ROS_INFO("turn_left_90()");
+  chassis_enc_turn_degrees(90);
 }
 
 /**
  * @brief Runs towards left until R TOF is within good range
  */
 void locomote_from_long_to_short() {
-  // chassis_reset_if_required();
+  ROS_INFO("locomote_from_long_to_short()");
   assert(currentRail == RAIL_LONG);
 
   geometry_msgs::Twist tgt_vel;
@@ -198,11 +232,11 @@ void locomote_from_long_to_short() {
 
   turn_right_90();
   
-  calibrate_against_rail();
+  calibrate_against_rail(TRANSLATION_SPD + 100);
 }
 
 void locomote_from_short_to_long() {
-  // chassis_reset_if_required();
+  ROS_INFO("locomote_from_short_to_long()");
   assert(currentRail == RAIL_SHORT);
 
   geometry_msgs::Twist tgt_vel;
@@ -223,53 +257,48 @@ void locomote_from_short_to_long() {
 
   turn_left_90();
   
-  calibrate_against_rail();
+  calibrate_against_rail(TRANSLATION_SPD + 100);
 }
 
-void slide_to_station(enum StationID s) {
-  // chassis_reset_if_required();
+void __slide_to_station(enum StationID s) {
   enum GuideRail r = GET_STATION_RAIL(s);
   assert(r == currentRail);
+
+  ROS_INFO("__slide_to_station(%d)", (int)s);
 
   geometry_msgs::Twist tgt_vel;
   tgt_vel.linear.x = tgt_vel.linear.y = tgt_vel.angular.z = 0;
   
-
   switch (r) {
-    int error;
+    int error; // in terms of mm
     case RAIL_LONG:
       // read R TOF distance
-      do
-      {
-        // chassis_reset_if_required();
-        error = TOF_R_Reading - stationPositions[s];
-        // go right if positive error
-        tgt_vel.linear.y = error > 0 ? - TRANSLATION_SPD : TRANSLATION_SPD;
-        // keep chassis touching against guide rail
-        tgt_vel.linear.x = TRANSLATION_SPD / 4;
-        chassis_move_vel(tgt_vel);
-      } while (abs(error) > POS_TOLERANCE);
-      chassis_stop();
-      
+      error = TOF_R_Reading - stationPositions[s];
+      // go right if positive error
+      chassis_enc_move_y(- error);
       break;
+
     case RAIL_SHORT:
       // read L TOF distance
-      do
-      {
-        // chassis_reset_if_required();
-        error = stationPositions[s] - TOF_L_Reading;
-        // go right if positive error
-        tgt_vel.linear.y = error > 0 ? - TRANSLATION_SPD : TRANSLATION_SPD;
-        tgt_vel.linear.x = TRANSLATION_SPD / 4;
-        chassis_move_vel(tgt_vel);
-      } while (abs(error) > POS_TOLERANCE);
-      chassis_stop();
-      
+      error = stationPositions[s] - TOF_L_Reading;
+      // go right if positive error
+      chassis_enc_move_y(- error);
       break;
+
     default:
       ROS_FATAL("wrong rail state");
+      chassis_stop();
       assert(false);
   }
+
+  ROS_INFO("slide_to_station() complete");
+}
+
+void slide_to_station(enum StationID s) {
+  __slide_to_station(s);
+  calibrate_against_rail(200);
+  wait_ms(2000);
+  __slide_to_station(s);
 }
 
 /**
@@ -279,26 +308,33 @@ bool locomotion_cmd_callback(LocomotionCmd::Request &request,
                              LocomotionCmd::Response &response) {
   if (executionInProgress) {
     ROS_WARN("skipping locomotion callback b/c exec in progress");
-    return true;
+    response.status = -1;
+    return false;
   }
   executionInProgress = true;
-  chassis_reset_if_required();
   
+  currentStation = (enum StationID) request.station;
+
   if (!GET_STATION_RAIL(request.station) == currentRail) {
     // need to move to the other rail
     if (currentRail == RAIL_LONG) {
+      ROS_INFO("locomote_from_long_to_short");
       locomote_from_long_to_short();
       currentRail = RAIL_SHORT;
     } else {
+      ROS_INFO("locomote_from_short_to_long");
       locomote_from_short_to_long();
       currentRail = RAIL_LONG;
     }
   }
 
+  ROS_INFO("slide_to_station");
   slide_to_station((enum StationID) request.station);
 
   executionInProgress = false;
 
+  ROS_INFO("-- LOCOMOTION COMPLETE --");
+  response.status = 0;
   return true;
 }
 
@@ -311,35 +347,7 @@ void chassis_fdb_callback(jr_communication::ChassisInfo info) {
   TOF_F_Reading = info.dist4;// == 0 ? TOF_F_Reading : info.dist4; //4
   SW_L_State = info.sw_l;
   SW_R_State = info.sw_r;
-
-  if (TOF_L_Reading == tof_L_prev) {
-    tof_L_timeout ++;
-  } else {
-    tof_L_timeout = 0;
-  }
-  if (TOF_R_Reading == tof_R_prev) {
-    tof_R_timeout ++;
-  } else {
-    tof_R_timeout = 0;
-  }
-  if (TOF_F_Reading == tof_F_prev) {
-    tof_F_timeout ++;
-  } else {
-    tof_F_timeout = 0;
-  }
-
-  if (tof_L_timeout > TOF_TOUT_LIMIT ||
-  tof_R_timeout > TOF_TOUT_LIMIT ||
-  tof_F_timeout > TOF_TOUT_LIMIT) {
-    if (!resetRequired) {
-      ROS_ERROR("reset is required");
-    }
-    resetRequired = true;
-  }
-  
-  tof_L_prev = TOF_L_Reading;
-  tof_R_prev = TOF_R_Reading;
-  tof_F_prev = TOF_F_Reading;
+  enc_exec_done = info.enc_exec_done;
 
   //std::cout << "r_state " << SW_R_State << std::endl;
 }
@@ -353,6 +361,10 @@ int main(int argc, char **argv) {
     }
 
     ros::ServiceServer actuation_server;
+
+    if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info) ) {
+      ros::console::notifyLoggerLevelsChanged();
+    }
 
     // More initialization here
 
@@ -372,24 +384,11 @@ int main(int argc, char **argv) {
       "jr_locomotion_cmd", locomotion_cmd_callback
     );
 
-    //turn_right_90();
-    // calibrate_against_rail();
-
-    // motor_vel_pub = node.advertise<geometry_msgs::Quaternion>(
-    //   "jr_cmd_vel", MSG_QUEUE_SIZE);
-
-    /*
-     * Topic : jr_cmd_vel
-     * Type  : geometry_msgs/Twist
-     */
-    // ros::Subscriber sub = node.subscribe(
-    //   "jr_cmd_vel", MSG_QUEUE_SIZE, lwheel_vtarget_callback);
-
     ROS_INFO("initialized actuation node");
 
-    chassis_reset();
+    //chassis_reset();
 
-    ROS_INFO("reset chassis");
+    //ROS_INFO("reset chassis");
 
     ros::MultiThreadedSpinner spinner(4);
     spinner.spin();

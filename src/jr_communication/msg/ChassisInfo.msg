@@ -10,3 +10,4 @@ int16 dist4
 int16 dist5
 uint8 sw_l
 uint8 sw_r
+uint8 enc_exec_done

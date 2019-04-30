@@ -55,6 +55,7 @@ void print_usage(void) {
   printf("usage: rosrun jr_comm_node tty_path <spd_p> <spd_i> <spd_d>\n");
 }
 
+/* Non blocking even for encoder operations */
 bool send_command_callback(MotorCmd::Request  &request,
                            MotorCmd::Response &respond) {
   if (request.reset != 0) {
@@ -62,13 +63,28 @@ bool send_command_callback(MotorCmd::Request  &request,
     return true;
   }
 
-  jrcomm_send_chassis_command(request.x_spd, request.y_spd, request.w_spd);
+  if (request.move_cmd == SPD_CTRL) {
+
+    ROS_INFO("send chassis vel ctrl");
+    jrcomm_send_chassis_command(request.x_spd, request.y_spd, request.w_spd);
+
+  } else {
+
+    ROS_INFO("send chassis enc ctrl");
+    jrcomm_send_chassis_encoder((move_cmd_e) request.move_cmd,
+      request.move_cmd == ENC_CTRL_X ? request.x_spd :
+      request.move_cmd == ENC_CTRL_Y ? request.y_spd :
+      request.w_spd
+    );
+  }
+  
   return true;
 }
 
 void sigint_handler(int signal) {
+  /* Stop chassis before shutdown */
   jrcomm_send_chassis_command(0, 0, 0);
-  exit(0);
+  ros::shutdown();
 }
 
 int main(int argc, char **argv) {
@@ -120,7 +136,7 @@ int main(int argc, char **argv) {
   // Running at 5Hz
   ros::Rate loop_rate(5);
 
-  // signal(SIGINT, sigint_handler);
+  signal(SIGINT, sigint_handler);
 
   while(ros::ok()) {
     chassis_info_pub.publish(chassis_info_msg);

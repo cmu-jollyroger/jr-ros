@@ -200,6 +200,7 @@ static void data_handle(uint8_t *p_frame) {
     chassis_info_msg.dist5 = chassis_info->tof_5 * TOF_CALIB_RATIO;
     chassis_info_msg.sw_l = chassis_info->sw_l;
     chassis_info_msg.sw_r = chassis_info->sw_r;
+    chassis_info_msg.enc_exec_done = chassis_info->enc_exec_done;
   }
 }
 
@@ -335,11 +336,36 @@ typedef enum
 void jrcomm_send_chassis_command(int16_t vx, int16_t vy, float w_spd) {
   chassis_ctrl_t control;
   control.ctrl_mode = CHASSIS_MOVING;
+  control.move_cmd = SPD_CTRL;
   control.x_spd = vx;
   control.y_spd = vy;
   control.w_info.x_offset = 0;
   control.w_info.y_offset = 0;
   control.w_info.w_spd = w_spd;
+
+  int packed_size = data_pack_handle(
+          CHASSIS_CTRL_ID, (uint8_t *)&control, sizeof(control));
+  jrcomm_transmit((char *)computer_tx_buf, packed_size);
+}
+
+void jrcomm_send_chassis_encoder(move_cmd_e cmd_type, int16_t cmd_val) {
+  chassis_ctrl_t control;
+  control.ctrl_mode = CHASSIS_MOVING;
+  control.move_cmd = cmd_type;
+  switch (cmd_type) {
+    case ENC_CTRL_X: {
+      control.x_spd = cmd_val;
+      break;
+    }
+    case ENC_CTRL_Y: {
+      control.y_spd = cmd_val;
+      break;
+    }
+    case ENC_CTRL_W: {
+      control.w_info.w_spd = (float) cmd_val;
+      break;
+    }
+  }
 
   int packed_size = data_pack_handle(
           CHASSIS_CTRL_ID, (uint8_t *)&control, sizeof(control));

@@ -97,6 +97,14 @@ typedef enum
   CUSTOM_CONFIG  = 3,
 } struct_config_e;
 
+typedef enum
+{
+  SPD_CTRL       = 0,
+  ENC_CTRL_X     = 1,
+  ENC_CTRL_Y     = 2,
+  ENC_CTRL_W     = 3
+} move_cmd_e;
+
 /********** the information send to computer ***********/
 
 /**
@@ -121,6 +129,7 @@ typedef struct __attribute__((__packed__))
   int16_t tof_5;
   uint8_t sw_l;           /**< left limit switch */
   uint8_t sw_r;           /**< right limit switch */
+  uint8_t enc_exec_done;  /**< encoder execution done, 0 if still in progress */
 } chassis_info_t;
 
 /**
@@ -146,7 +155,7 @@ typedef struct __attribute__((__packed__))
 {
   int16_t x_offset;   /* offset(mm) relative to the x-axis of the chassis center */
   int16_t y_offset;   /* offset(mm) relative to the y-axis of the chassis center */
-  float   w_spd;      /* rotation speed(degree/s) of chassis */
+  float   w_spd;      /* rotation speed(deg/s) of chassis, or angle(deg) if enc */
 } chassis_rotate_t;
 
 /**
@@ -155,8 +164,9 @@ typedef struct __attribute__((__packed__))
 typedef struct __attribute__((__packed__))
 {
   uint8_t          ctrl_mode; /* chassis control mode */
-  int16_t          x_spd;     /* x-axis move speed(mm/s) of chassis */
-  int16_t          y_spd;     /* y-axis move speed(mm/s) of chassis */
+  uint8_t          move_cmd;  /* command type */
+  int16_t          x_spd;     /* x-axis speed(mm/s), or displacement(mm) if enc */
+  int16_t          y_spd;     /* y-axis speed(mm/s), or displacement(mm) if enc */
   chassis_rotate_t w_info;    /* rotation control of chassis */
 } chassis_ctrl_t;
 

@@ -1,9 +1,17 @@
+# Service Type for ShipBot chassis operations
+# ctrl_mode: Chassis control mode
 uint8   ctrl_mode
+# move_cmd: SPD or ENC_*, will block until exec complete if ENC_*
+uint8   move_cmd
+# x_spd: x speed (mm/s) or x enc displacement(mm)
 int16   x_spd
+# y_spd: y speed (mm/s) or y enc displacement(mm)
 int16   y_spd
 int16   x_offset
 int16   y_offset
+# w_spd: w speed (deg/s) or w enc displacement(deg)
 float32 w_spd
+# reset: resets the microcontroller if set to 1
 int8 reset
 ---
-int64 sum
+int64 result
