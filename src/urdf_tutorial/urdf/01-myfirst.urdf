@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<robot name="jollyroger">
+
+<link name="base">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+    </visual>
+  </link>
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="0 0 3.14" xyz="0 0 0"/>
+    </visual>
+  </link>
+
+<link name="elbow_1">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="0 1.57 3.14" xyz="0 0 0"/>
+    </visual>
+  </link>
+
+  <link name="elbow_2">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="3.14 0 0" xyz="0 0 0"/>
+    </visual>
+  </link>
+
+  <link name="elbow_3">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="0 3.14 0" xyz="0 0 0"/>
+    </visual>
+  </link>
+
+  <link name="end_eff">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+      <origin rpy="0 3.14 0" xyz="0 0 0"/>
+    </visual>
+  </link>
+
+<joint name="base_to_base" type="continuous">
+  <limit lower="-3.14" upper="3.14" effort="1000.0" velocity="5.0"/>
+    <parent link="base_link"/>
+    <child link="base"/>
+    <origin rpy="0 0 -1.57" xyz="0 0 0.041148"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+<joint name="base_to_elbow_1" type="continuous">
+  <limit lower="-1.57" upper="3.0" effort="1000.0" velocity="5.0"/>
+    <parent link="base"/>
+    <child link="elbow_1"/>
+    <origin xyz="0 0.053592 0.044958" rpy="-1.57 1.57 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+
+  <joint name="elbow_1_to_elbow_2" type="continuous">
+  <!-- <limit lower="-3.14" upper="3.14" effort="1000.0" velocity="5.0"/> -->
+    <parent link="elbow_1"/>
+    <child link="elbow_2"/>
+    <origin rpy="3.14 0 3.14" xyz="0 0.385064 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+
+  <joint name="elbow_2_to_elbow_3" type="continuous">
+<!--  <limit lower="-3.14" upper="3.14" effort="1000.0" velocity="5.0"/>
+ -->    <parent link="elbow_2"/>
+    <child link="elbow_3"/>
+    <origin rpy="0 3.14 0" xyz="0 0.3302 0.051054"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <joint name="elbow_3_to_end_eff" type="continuous">
+  <!-- <limit lower="-1.57" upper="3.14" effort="1000.0" velocity="5.0"/> -->
+    <parent link="elbow_3"/>
+    <child link="end_eff"/>
+    <origin rpy="-1.57 0 0" xyz="0 0.101854 0.051054"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+</robot>
