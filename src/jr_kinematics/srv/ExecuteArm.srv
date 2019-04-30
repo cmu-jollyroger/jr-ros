@@ -1,0 +1,7 @@
+# Target pose 
+geometry_msgs/Pose target_pose
+int64 device_type
+int64 device_orient
+---
+# Trajectory has been executed
+bool done 

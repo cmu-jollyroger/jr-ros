@@ -18,8 +18,7 @@
 #include <Eigen/Dense>
 #include "jr_common.h"
 #include "hebi_cpp_api/trajectory.hpp"
-// #include "hebi_cpp_api/util/grav_comp.hpp"
-//#include <robot_state_publisher/robot_state_publisher.h>
+
 using namespace std;
 using namespace hebi;
 
@@ -28,14 +27,15 @@ class motion
 public:
 	motion();
 	KDL::JntArray getIK(geometry_msgs::Pose target_pose);
-	bool exec_traj(geometry_msgs::Pose target_pose, int d_orient, int device);
-	//Eigen::MatrixXd interpolateJnts(Eigen::VectorXd cpos, Eigen::VectorXd tpos, int num_wayp);
-
-	bool hebi_send_command(Eigen::VectorXd pos);
+	KDL::Frame getFK(KDL::JntArray joints);
+	//bool exec_traj(geometry_msgs::Pose target_pose, int d_orient, int device);
+	bool exec_traj(geometry_msgs::Pose target_pose);
+	bool to_homing();
+	//bool hebi_send_command(Eigen::VectorXd pos);
 	Eigen::VectorXd hebi_feedback();
 
 	ros::Publisher joint_pub;
-	Eigen::VectorXd homing;
+	Eigen::VectorXd homing, waypoint;
 
 private: 
 	KDL::Chain chain;
@@ -43,10 +43,10 @@ private:
 	std::string chain_end = "end_eff";
 	std::string urdf_param = "/robot_description";
 	double timeout = 0.06;
-	double eps = 100;
+	double eps = 1e-3;
 	KDL::JntArray result;
 	KDL::JntArray ll, ul; 
-
+	KDL::Twist tolerances; 
   	
 	TRAC_IK::TRAC_IK *tracik_solver;
 	TRAC_IK::SolveType type=TRAC_IK::Distance;
@@ -58,28 +58,45 @@ private:
 
 	Lookup lookup;
 	std::shared_ptr<Group> group;
-	
 
 
 };
 
+void check_jnts(Eigen::VectorXd jnts){
+	if ((jnts[0] <= -M_PI 			|| jnts[0] >= M_PI) 	||
+		(jnts[1] <= -M_PI/2 	|| jnts[1] >= M_PI/2)	||
+		(jnts[2] <= -M_PI  	|| jnts[2] >= M_PI )	||
+		(jnts[3] <= -M_PI		|| jnts[3] >= M_PI)		){
+		ROS_FATAL("Joint Limits have been hit. Please put robot in correct configuration");
+		exit(-1);
+		
+	}
+}
 
 motion::motion(){
-
-
-
-	group = lookup.getGroupFromNames({ "JollyRoger Arm" }, {"Base", "Elbow-1", "Elbow-2", "EndEffector"});
+	/* Start the broadcasting to the arm */
+	group = lookup.getGroupFromNames({ "JollyRoger Arm" }, {"Base", "Elbow-1", "Elbow-2", "EndEffector", "Jammer"});
 	if (!group)
 	{
 	std::cout << "Group not found!" << std::endl;
-	exit;
+	exit(-1);
 	}
 	group->setCommandLifetimeMs(1000);
+	hebi_feedback();
+	//check_jnts(hebi_feedback());
+
+	/* Setup the IK */
 	joint_pub = nh.advertise<sensor_msgs::JointState>("/joint_states",10);
+
+	// set joint upper and lower joint limits
 	ll.resize(5); ul.resize(5);
-	
-	ll(0)=-3.14 ; ul(0)=3.14;
-	ll(1)=-3.14 ; ul(1)=3.14;
+	// ll(0)=-3.14 ; ul(0)=3.14;
+	// ll(1)=-1.57 ; ul(1)=1.57;
+	// ll(2)=-0.785398163 ; ul(2)=2.0;
+	// ll(3)=-3.14 ; ul(3)=3.14;
+	// ll(4)=-3.14 ; ul(4)=3.14;
+	ll(0)=-1.57 ; ul(0)=1.57;
+	ll(1)= -3.14 ; ul(1)=2.4;
 	ll(2)=-3.14 ; ul(2)=3.14;
 	ll(3)=-3.14 ; ul(3)=3.14;
 	ll(4)=-3.14 ; ul(4)=3.14;
@@ -93,58 +110,71 @@ motion::motion(){
 	if(!got_chain){
 		ROS_INFO("Unable to load KDL chain");
 	}
-	tracik_solver = new TRAC_IK::TRAC_IK(chain,ll,ul,timeout, 100,type=type);
-	bool valid = tracik_solver->getKDLChain(chain);
-
-  	//std::cout << "num of joints in chain: " << chain.getNrOfJoints() << std::endl;
-
-
+	tracik_solver = new TRAC_IK::TRAC_IK(chain,ll,ul,timeout, eps,type=type);
+	
+	/* Seed for trac-ik*/
 	joint_angle_track.resize(5);
-	joint_angle_track[0] = 0.00909102 ;
-	joint_angle_track[1] =-0.411375 ;
-	joint_angle_track[2] = 2.74059 ;
-	joint_angle_track[3] = 7.90925 ;
+	joint_angle_track[0] = 0.0590396 ;
+	joint_angle_track[1] =  2.17705 ;
+	joint_angle_track[2] = 2.71345 ;
+	joint_angle_track[3] = 0.581935 ;
 	joint_angle_track[4] = 0.0;
 
 
+  
+	/* Waypoint for the trajectory */
+	waypoint.resize(5);
+	waypoint(0) = -0.480871; 
+	waypoint(1) = 1.94446; 
+	waypoint(2) =  2.6957; 
+	waypoint(3) = 0.954698; 
+	waypoint(4) = 0.0; 
+
+
+	/* Homing position in Joint Angles*/
 
 	homing.resize(5);
+	homing(0) = 0.0590396;
+	homing(1) =  2.17705;
+	homing(2) = 2.71345;
+	homing(3) = 0.581935;
+	homing(4) = 0.0;
+
+	
+
+	KDL::Vector linear(0,0,0); 
+	KDL::Vector angular(0.174533,0.174533,0);
+	tolerances.vel = linear; tolerances.rot = angular;
+
+}
+
+
+KDL::Frame motion::getFK(KDL::JntArray joints){
+	KDL::ChainFkSolverPos_recursive fk_solver(chain);
+	cout<<joints(0)<<" " << joints(1)<<" " << joints(2)<<" " << joints(4) << joints(5)<<endl;
+	KDL::Frame pose;
+	fk_solver.JntToCart(joints,pose);
+	double x,y,z,w;
+	cout<<pose.p.x() <<  " " << pose.p.y() << " " << pose.p.z() <<endl;
+	//cout<<target_pose.position.x << " "<< target_pose.position.y  <<" "<<target_pose.position.z <<endl;
+	pose.M.GetQuaternion(x,y,z,w); 
+	cout<< x << " " << y << " " <<z << " " <<w<<endl;
+	return(pose);
 
 
 
-
-	homing(0) = 0.01647687 ;
-	homing(1) =0.68725264 ;
-	homing(2) =2.90794563 ;
-	homing(3) = 7.90925 ;
-	homing(4) = 6.95029498;
 }
 
 
 KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){ 
 	
-  	// valid = tracik_solver->getKDLChain(chain);
-	KDL::ChainFkSolverPos_recursive fk_solver(chain);
-	KDL::JntArray jnts; 
-	jnts.resize(5);
-	jnts(0) = 0.00909102 ;
-	jnts(1) =-0.411375 ;
-	jnts(2) = 2.74059 ;
-	jnts(3) = 7.90925 ;
-	jnts(4) = 0.0;
+  	//valid = tracik_solver->getKDLChain(chain);
 	
-	KDL::Frame pose;
-	fk_solver.JntToCart(jnts,pose);
-	double x,y,z,w;
-
-	cout<<pose.p.x() << pose.p.y() <<pose.p.z() <<endl;
-	pose.M.GetQuaternion(x,y,z,w); 
-	cout<< x << y <<z <<w<<endl;
  
   	KDL::Vector posit(target_pose.position.x, target_pose.position.y, target_pose.position.z);
   	KDL::Rotation orient = KDL::Rotation::Quaternion(target_pose.orientation.x, target_pose.orientation.y,
   													 target_pose.orientation.z, target_pose.orientation.w);
-
+  	
   	KDL::Frame end_effector_pose(orient,posit);
 	KDL::JntArray nominal(chain.getNrOfJoints());
   
@@ -152,7 +182,7 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 		nominal(j) = joint_angle_track[j];
 	}
 
-	int rc=tracik_solver->CartToJnt(nominal,end_effector_pose,result);
+	int rc=tracik_solver->CartToJnt(nominal,end_effector_pose,result, tolerances);
 	if (rc > 0) {
 
 		std::cout << "ik succeed " << std::endl;
@@ -174,201 +204,47 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 
 }
 
-
-Eigen::MatrixXd v1_traj(DeviceOrientation orien, geometry_msgs::Pose target_pose){ 
-	motion ik;
-	//Eigen::VectorXd curr_jnts = ik.hebi_feedback();
-	Eigen::VectorXd curr_jnts; curr_jnts.resize(4);
-	curr_jnts<< 0,
-				0,
-				0,
-				0;
-	Eigen::VectorXd target_jnts;target_jnts.resize(4);
-	
-	tf::Quaternion in_q; int num;
-	switch(orien){
-		case VERTICAL: in_q= tf::Quaternion(-0.491329,0.487592,0.513436,0.507182);num = 3;
-						break;
-		case HORIZONTAL: in_q= tf::Quaternion(tf::createQuaternionFromRPY(0,M_PI,M_PI/2));num = 3;
-						break;
-	}
-	target_pose.orientation.x = in_q.x();target_pose.orientation.y = in_q.y();
-	target_pose.orientation.z = in_q.z();target_pose.orientation.w = in_q.w();
-	
-	Eigen::MatrixXd traj(4,5);
-	
-	KDL::JntArray tresult = ik.getIK(target_pose);
-	KDL::JntArray mresult;
-	if (num ==2){
-		printf("num_2\n");
-		traj<<curr_jnts(0), ik.homing(0), tresult(0), ik.homing(0),ik.homing(0),
-			  curr_jnts(1), ik.homing(1), tresult(1), ik.homing(1),ik.homing(1),
-			  curr_jnts(2), ik.homing(2), tresult(2), ik.homing(2),ik.homing(2),
-			  curr_jnts(3), ik.homing(3), tresult(3), ik.homing(3),ik.homing(3);
-			//  curr_jnts(4), tresult(4);
-	}
-	
-	else if (num ==3){
-		printf("num_2\n");
-		target_pose.position.y+=0.05;		
-		mresult = ik.getIK(target_pose);
-		traj<<curr_jnts(0), ik.homing(0), mresult(0), tresult(0), ik.homing(0),
-			  curr_jnts(1), ik.homing(1), mresult(1), tresult(1), ik.homing(1),
-			  curr_jnts(2), ik.homing(2), mresult(2), tresult(2), ik.homing(2),
-			  curr_jnts(3), ik.homing(3), mresult(3), tresult(3), ik.homing(3);
-			//  curr_jnts(4), mresult(4), tresult(4);
-	}
-
-	cout<<traj<<endl;
-	printf("done\n");
-	return(traj);
-
-	
-}
-Eigen::MatrixXd v2_traj(geometry_msgs::Pose target_pose){ 
-	motion ik;
-	// Eigen::VectorXd curr_jnts = hebi_feedback();
-	Eigen::VectorXd curr_jnts; curr_jnts.resize(4);
-	curr_jnts<< 0,
-				0,
-				0,
-				0;
-	Eigen::VectorXd target_jnts;target_jnts.resize(4);
-	tf::Quaternion in_q;
-	in_q = tf::Quaternion(-0.491329,0.487592,0.513436,0.507182);
-
-	target_pose.orientation.x = in_q.x();target_pose.orientation.y = in_q.y();
-	target_pose.orientation.z = in_q.z();target_pose.orientation.w = in_q.w();
-	
-	Eigen::MatrixXd traj(4,5);
-	
-	KDL::JntArray tresult = ik.getIK(target_pose);
-	//KDL::JntArray mresult;
-	
-	printf("num_2\n");
-	traj<<curr_jnts(0), ik.homing(0), tresult(0), ik.homing(0),ik.homing(0),
-		  curr_jnts(1), ik.homing(1), tresult(1), ik.homing(1),ik.homing(1),
-		  curr_jnts(2), ik.homing(2), tresult(2), ik.homing(2),ik.homing(2),
-		  curr_jnts(3), ik.homing(3), tresult(3), ik.homing(3),ik.homing(3);
-		//  curr_jnts(4), tresult(4);
-
-	cout<<traj<<endl;
-	printf("done\n");
-	return(traj);
-
-}
-// Eigen::MatrixXd v3_traj(DeviceOrientation orien, geometry_msgs::Pose target_pose){ 
-// 	// Eigen::VectorXd curr_jnts = hebi_feedback();
-// 	Eigen::VectorXd target_jnts; target_jnts.resize(5);
-// 	tf::Quaternion in_q;
-// 	switch(orien){
-// 		case VERTICAL: in_q= tf::Quaternion(-0.491329,0.487592,0.513436,0.507182);
-// 		case HORIZONTAL: in_q= tf::Quaternion(tf::createQuaternionFromRPY(0,M_PI,M_PI/2));
-// 	}
-// 	target_pose.orientation.x = in_q.x();target_pose.orientation.y = in_q.y();
-// 	target_pose.orientation.z = in_q.z();target_pose.orientation.w = in_q.w();
-// 	motion ik;
-// 	KDL::JntArray result = ik.getIK(target_pose);
-// 	for(uint i=0; i<result.data.size(); i++){
-// 		target_jnts(i) = result(i);
-// 	}
-
-
-Eigen::MatrixXd b_traj(DeviceOrientation orien, geometry_msgs::Pose target_pose ){ 
-	motion ik;
-	// Eigen::VectorXd curr_jnts = hebi_feedback();
-	Eigen::VectorXd curr_jnts; curr_jnts.resize(4);
-	curr_jnts<< 0,
-				0,
-				0,
-				0;
-	Eigen::VectorXd target_jnts; target_jnts.resize(5);
-	tf::Quaternion in_q(-0.491329,0.487592,0.513436,0.507182);
-	target_pose.orientation.x = in_q.x();target_pose.orientation.y = in_q.y();
-	target_pose.orientation.z = in_q.z();target_pose.orientation.w = in_q.w();
-	geometry_msgs::Pose move_up = target_pose;
-	switch(orien){
-		case VERTICAL: move_up.position.z+=0.1; break;
-		case HORIZONTAL: move_up.position.z-=0.1; break;
-	}
-	
-
-	Eigen::MatrixXd traj(4,5);
-	KDL::JntArray tresult = ik.getIK(target_pose);
-	KDL::JntArray mresult = ik.getIK(move_up);
-	traj<<curr_jnts(0), ik.homing(0), tresult(0), mresult(0),ik.homing(0),
-		  curr_jnts(1), ik.homing(1), tresult(1), mresult(1),ik.homing(1),
-		  curr_jnts(2), ik.homing(2), tresult(2), mresult(2),ik.homing(2),
-		  curr_jnts(3), ik.homing(3), tresult(3), mresult(3),ik.homing(3);
-	cout<<traj<<endl;
-	printf("done\n");
-	return(traj);
-}
-
-
-bool motion::exec_traj(geometry_msgs::Pose target_pose, int d_orient, int dev){
-
-	// get_current_pose 
-	Eigen::VectorXd curr_jnts = hebi_feedback();
-
-	
+bool motion::to_homing(){ 
+	ROS_INFO("Homing the robot"); 
 	const double nan = std::numeric_limits<float>::quiet_NaN();
-	// DeviceType device = (enum DeviceType) dev;
-	// DeviceOrientation orien = (enum DeviceOrientation)d_orient; 
-	// Eigen::MatrixXd traj(4,3); 
-	// 
-	// switch(device){
-	// 	case V1:printf("v1\n");
-	// 			traj = v1_traj(orien, target_pose); 
-	// 			break;
-	// 	case V2: traj = v2_traj(target_pose);break;
-	// 	case V3: traj = v1_traj(orien,target_pose);break;
-	// 	case B: traj = b_traj(orien,target_pose);break;
-	// }
+	Eigen::VectorXd current_position = hebi_feedback();
+	int num_joints =5;
+	int num_points=3;
+	Eigen::MatrixXd positions(num_joints,num_points);
+	Eigen::MatrixXd velocities(num_joints,num_points);
+	Eigen::MatrixXd accelerations(num_joints,num_points);
 
-	// printf("vel_acc\n");
-	Eigen::MatrixXd positions(4,4);
-	Eigen::MatrixXd velocities(4,4);
-	Eigen::MatrixXd accelerations(4,4);
-	printf("this\n");
-	velocities<< 0, nan, nan, 0,
-              0, nan, nan, 0,
-              0, nan, nan, 0,
-              0, nan, nan, 0;
-	printf("yo\n");
-	positions <<curr_jnts(0), homing(0), 0.09047222 ,  1.35895622,
-			  curr_jnts(1), homing(1),0.11336315 ,0.16411419,
-			  curr_jnts(2), homing(2),1.8573246 ,1.80936718,
-			  curr_jnts(3), homing(3),6.50338507, 6.28021574;
-	
-	
-    printf("yo_2\n");
-	accelerations <<0, nan, nan, 0,
-                0, nan, nan, 0,
-                0, nan, nan, 0,
-                0, nan, nan, 0;
 
-	printf("Time\n");
-	//get target pose
-    Eigen::VectorXd time(4);
-	time << 0, 10,20,25;
-	int num_joints = 4;
-	printf("traj\n");
-	auto trajectory = trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
+
+	positions << current_position[0], homing(0),homing(0),        
+	             current_position[1], homing(1),homing(1),
+	             current_position[2], homing(2),homing(2),        
+	             current_position[3], homing(3),homing(3),
+	             current_position[4], homing(4),homing(4);
+	velocities << 0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0,
+	              0, nan, 0;
+
+	accelerations << 0, nan, 0,
+	                 0, nan, 0,
+	                 0, nan, 0,
+	              	 0, nan, 0,
+	              	 0, nan, 0;
+
+	// The times to reach each waypoint (in seconds)
+	Eigen::VectorXd time(num_points);
+	time << 0, 15, 16;
+
+	// Define trajectory
+	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
 
 	hebi::GroupCommand cmd(num_joints);
 	double period = 0.01;
 	double duration = trajectory->getDuration();
 	Eigen::VectorXd pos_cmd(num_joints);
 	Eigen::VectorXd vel_cmd(num_joints);
-
-	Eigen::VectorXd ss(4);
-	ss<<homing(0),
-homing(1),
-homing(2),
-homing(3);
-
-
 	for (double t = 0; t < duration; t += period)
 	{
 	  // Pass "nullptr" in to ignore a term.
@@ -378,49 +254,111 @@ homing(3);
 	  group->sendCommand(cmd);
 	  std::this_thread::sleep_for(std::chrono::milliseconds((long int) (period * 1000)));
 	}
+		return true;
+}
+
+bool motion::exec_traj(geometry_msgs::Pose target_pose){
+
+	// Define nan variable for readability below
+	printf("Executing Traj\n");
+	const double nan = std::numeric_limits<float>::quiet_NaN();
+	int num_joints =5;
+	int num_points=4;
 	
-	while(true){
-		hebi_send_command(ss);
+	KDL::JntArray target_position = getIK(target_pose);
+
+	bool homed = to_homing();
+	printf("Finshed to_homing\n");
+	Eigen::VectorXd current_position = hebi_feedback();
+	
+	Eigen::MatrixXd positions(num_joints,num_points);
+	Eigen::MatrixXd velocities(num_joints,num_points);
+	Eigen::MatrixXd accelerations(num_joints,num_points);
+
+
+	// positions << current_position[0], waypoint(0), target_position(0),target_position(0),        
+	//              current_position[1], waypoint(1), target_position(1),target_position(1),
+	//              current_position[2], waypoint(2),  target_position(2),target_position(2),        
+	//              current_position[3], waypoint(3),  target_position(3),target_position(3),
+	//              current_position[4], waypoint(4),  target_position(4),target_position(4);
+
+	positions << current_position[0], homing(0), target_position(0),target_position(0),        
+             current_position[1], homing(1), target_position(1),target_position(1),
+             current_position[2], homing(2),  target_position(2),target_position(2),        
+             current_position[3], homing(3),  target_position(3),target_position(3),
+             current_position[4], homing(4),  target_position(4),target_position(4);
+
+ 
+
+	// positions << current_position[0], homing(0), -1.33051, -1.33685,        
+	//              current_position[1], homing(1),0.981742,1.19396,
+	//              current_position[2], homing(2),  0.1042,  0.713121,        
+	//              current_position[3], homing(3), -2.15501,-1.78131;
+
+
+	// positions << current_position[0], homing(0), -1.48399, -1.48994,        
+	//              current_position[1], homing(1),1.76061, 1.58597,
+	//              current_position[2], homing(2),  2.12292,   2.01213,        
+	//              current_position[3], homing(3), 0.611477,0.676296;
+
+	velocities << 0, nan, nan, 0,
+	              0, nan, nan, 0,
+	              0, nan, nan, 0,
+	              0, nan, nan, 0,
+	              0, nan, nan, 0;
+
+	accelerations << 0,  nan, nan, 0,
+	                 0,  nan, nan, 0,
+	                 0,  nan, nan, 0,
+	              	 0,  nan, nan, 0,
+	              	 0,  nan, nan, 0;
+
+	// The times to reach each waypoint (in seconds)
+	Eigen::VectorXd time(num_points);
+	// time << 0, 15, 25, 33;
+	time << 0, 3, 15, 33;
+
+	// Define trajectory
+	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
+
+	// Send trajectory
+	hebi::GroupCommand cmd(num_joints);
+	double period = 0.01;
+	double duration = trajectory->getDuration();
+	Eigen::VectorXd pos_cmd(num_joints);
+	Eigen::VectorXd vel_cmd(num_joints);
+	for (double t = 0; t < duration; t += period)
+	{
+	  // Pass "nullptr" in to ignore a term.
+	  trajectory->getState(t, &pos_cmd, &vel_cmd, nullptr);
+	  cmd.setPosition(pos_cmd);
+	  cmd.setVelocity(vel_cmd);
+	  group->sendCommand(cmd);
+	  std::this_thread::sleep_for(std::chrono::milliseconds((long int) (period * 1000)));
 	}
-
-	return true;
-
+		return true;
 
 }
 
-// Eigen::MatrixXd motion::interpolateJnts(Eigen::VectorXd cpos, Eigen::VectorXd tpos, int num_wayp){ 
+// bool motion::hebi_send_command( Eigen::VectorXd pos){
+	
+// 	Eigen::VectorXd efforts(group->size());
+	
+// 	efforts.setZero();
+	
+// 	hebi::GroupCommand groupCommand(group->size());
 
-// 	for(int i=0; i<cpos.size(); i++ ){
-
-// 		double step_size = (tpos(i) - cpos(i))/2;
-// 	}
-
-
-
+// 	groupCommand.setEffort(efforts);
+// 	groupCommand.setPosition(pos);
+// 	group->sendCommand(groupCommand);
+// 	return true;
 // }
-
-
-bool motion::hebi_send_command( Eigen::VectorXd pos){
-	
-	Eigen::VectorXd efforts(group->size());
-	
-	efforts.setZero();
-	
-
-	hebi::GroupCommand groupCommand(group->size());
-
-	groupCommand.setEffort(efforts);
-	groupCommand.setPosition(pos);
-	group->sendCommand(groupCommand);
-	return true;
-}
 
 
 
 Eigen::VectorXd motion::hebi_feedback(){ 
 
-	// This is by default "100"; setting this to 5 here allows the console output
-	// to be more reasonable.
+
 	group->setFeedbackFrequencyHz(5);
 	GroupFeedback group_fbk(group->size());
 	if (group->getNextFeedback(group_fbk))
@@ -434,6 +372,16 @@ Eigen::VectorXd motion::hebi_feedback(){
 }
 
 
+
+
+
+
+
+
+
+
+
+
 int main(int argc, char **argv)
 {
 	/* code */
@@ -441,38 +389,52 @@ int main(int argc, char **argv)
 
 	ros::start();
 	
+	// Check setup
 	motion ik; 
-	//Eigen::VectorXd position; position.resize(4); 
 
-
-   
-   
-	// position<<  0.111384,
-	// -0.233068,
-	//  2.63529,
- //  	1.57;
-	ik.hebi_feedback();
-	// while(ros::ok()){
-	// 	ik.hebi_send_command(position);
-	// 	ros::spinOnce();
-	// }
-	//cout<<position<<endl;
 	geometry_msgs::Pose target; 
-	bool res =ik.exec_traj(target,0,1);
 
-	// geometry_msgs::Pose target; 
-	// //target.position.x =0.03454648;
-	// target.position.x =0.0;
-	// target.position.y =0.35;
-	// target.position.z = 0.49;
-	// tf::Quaternion in_q(-0.491329,0.487592,0.513436,0.507182);  // vertical
-	// // tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI,M_PI/2); // horizontal
+	
+	
+	target.position.x =0.46;
+	target.position.y =0.0;
+	target.position.z = 0.50;
 
-	// // target.orientation.x = in_q.x();target.orientation.y = in_q.y();
-	// // target.orientation.z = in_q.z();target.orientation.w = in_q.w();
-	// printf("getIk\n");
-	// KDL::JntArray result = ik.getIK(target);
-	// //bool res = ik.exec_traj(target,0,1);
+	/* EXAMPLE 2: XYZ position*/
+	// target.position.x =0.03454650;
+	// target.position.y =0.252262;
+	// target.position.z = 0.112877;
+
+	/* EXAMPLE : Orientation of end effector */
+
+	//tf::Quaternion in_q(-0.491329, 0.487592 ,0.513436 ,0.507182);  // y-vertical - point straight to the side
+
+
+
+
+	//tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI,M_PI/2); // horizontal - point straight down
+	tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI/2,0); // x-vertical - point staight to the device
+	target.orientation.x = in_q.x();target.orientation.y = in_q.y();
+	target.orientation.z = in_q.z();target.orientation.w = in_q.w();
+	printf("getIk\n");
+
+
+
+	/* Get IK */
+	KDL::JntArray result = ik.getIK(target);
+
+	/* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
+	bloxk out if you just want to see IK result*/
+
+	bool done = ik.exec_traj(target);
+	cout<<done<<endl;
+
+
+
+	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
+
+
+
 	// printf("Got here_1\n");
 	// tf::TransformBroadcaster br;
  //  	tf::Transform transform;
@@ -485,8 +447,8 @@ int main(int argc, char **argv)
  //  	sensor_msgs::JointState joint_state;
  //  	joint_state.position.resize(5);
  //  	joint_state.name.resize(5);
- //  	joint_state.name[0] = "dummy_to_base";
- //    joint_state.name[1] = "dummy_to_elbow_1";
+ //  	joint_state.name[0] = "base_to_base";
+ //    joint_state.name[1] = "base_to_elbow_1";
  //    joint_state.name[2] = "elbow_1_to_elbow_2";
  //    joint_state.name[3] = "elbow_2_to_elbow_3";
  //    joint_state.name[4] = "elbow_3_to_end_eff";

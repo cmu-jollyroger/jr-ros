@@ -66,7 +66,7 @@ find_package(orocos_kdl REQUIRED)
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  ArmCmd.srv
+  ExecuteArm.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -211,8 +211,15 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-add_executable(ik src/ik.cpp)
-target_link_libraries(ik ${catkin_LIBRARIES} 
+add_executable(traj src/ik.cpp)
+target_link_libraries(traj ${catkin_LIBRARIES} 
+          ${orocos_kdl_INCLUDE_DIRS}
+          ${HEBI_CPP_API_LIBRARIES}
+          )
+
+
+add_executable(test_model src/comm.cpp)
+target_link_libraries(test_model ${catkin_LIBRARIES} 
           ${orocos_kdl_INCLUDE_DIRS}
           ${HEBI_CPP_API_LIBRARIES}
           )
