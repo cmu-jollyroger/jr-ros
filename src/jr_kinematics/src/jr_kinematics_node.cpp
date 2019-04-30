@@ -1,6 +1,6 @@
 /**
- * @file jr_comm_node.cpp
- * @author Sara Misra, Haowen Shi
+ * @file jr_kinematics_node.cpp
+ * @author Haowen Shi, Sara Misra
  * @date Apr 2019
  * @brief ROS interface for Hebi arm IK and trajectory execution
  */

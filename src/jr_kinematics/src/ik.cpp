@@ -1,3 +1,10 @@
+/**
+ * @file ik.cpp
+ * @author Sara Misra
+ * @date Apr 2019
+ * @brief Core arm functionalities: IK, trajectory, execution
+ */
+
 #include <ros/ros.h>
 #include <boost/date_time.hpp>
 #include <cmath>
@@ -8,32 +15,35 @@
 using namespace std;
 using namespace hebi;
 
-void check_jnts(Eigen::VectorXd jnts){
-	if ((jnts[0] <= -M_PI 			|| jnts[0] >= M_PI) 	||
-		(jnts[1] <= -M_PI/2 	|| jnts[1] >= M_PI/2)	||
-		(jnts[2] <= -M_PI  	|| jnts[2] >= M_PI )	||
-		(jnts[3] <= -M_PI		|| jnts[3] >= M_PI)		){
+void check_jnts(Eigen::VectorXd jnts) {
+	if ((jnts[0] <= -M_PI   || jnts[0] >= M_PI)   ||
+		(jnts[1] <= -M_PI/2 || jnts[1] >= M_PI/2) ||
+		(jnts[2] <= -M_PI   || jnts[2] >= M_PI)   ||
+		(jnts[3] <= -M_PI   || jnts[3] >= M_PI)) 
+	{
 		ROS_FATAL("Joint Limits have been hit. Please put robot in correct configuration");
 		exit(-1);
-		
 	}
 }
 
-motion::motion(std::string robot_desc_string){
+motion::motion(std::string robot_desc_string) {
 	/* Start the broadcasting to the arm */
-	group = lookup.getGroupFromNames({ "JollyRoger Arm" }, {"Base", "Elbow-1", "Elbow-2", "EndEffector", "Jammer"});
+	group = lookup.getGroupFromNames(
+		{ "JollyRoger Arm" },
+		{ "Base", "Elbow-1", "Elbow-2", "EndEffector", "Jammer" }
+	);
 	if (!group)
 	{
-	std::cout << "Group not found!" << std::endl;
-	exit(-1);
+		ROS_FATAL("Group not found!");
+		exit(-1);
 	}
 	group->setCommandLifetimeMs(1000);
+
 	hebi_feedback();
+
 	//check_jnts(hebi_feedback());
 
 	/* Setup the IK */
-	
-
 	// set joint upper and lower joint limits
 	ll.resize(5); ul.resize(5);
 	// ll(0)=-3.14 ; ul(0)=3.14;
@@ -64,8 +74,6 @@ motion::motion(std::string robot_desc_string){
 	joint_angle_track[3] = 0.581935 ;
 	joint_angle_track[4] = 0.0;
 
-
-  
 	/* Waypoint for the trajectory */
 	waypoint.resize(5);
 	waypoint(0) = -0.480871; 
@@ -74,9 +82,7 @@ motion::motion(std::string robot_desc_string){
 	waypoint(3) = 0.954698; 
 	waypoint(4) = 0.0; 
 
-
 	/* Homing position in Joint Angles*/
-
 	homing.resize(5);
 	homing(0) = 0.0590396;
 	homing(1) =  2.17705;
@@ -84,12 +90,9 @@ motion::motion(std::string robot_desc_string){
 	homing(3) = 0.581935;
 	homing(4) = 0.0;
 
-	
-
 	KDL::Vector linear(0,0,0); 
 	KDL::Vector angular(0.174533,0.174533,0);
 	tolerances.vel = linear; tolerances.rot = angular;
-
 }
 
 
@@ -104,9 +107,6 @@ KDL::Frame motion::getFK(KDL::JntArray joints){
 	pose.M.GetQuaternion(x,y,z,w); 
 	cout<< x << " " << y << " " <<z << " " <<w<<endl;
 	return(pose);
-
-
-
 }
 
 
