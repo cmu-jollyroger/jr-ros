@@ -2,6 +2,9 @@
 geometry_msgs/Pose target_pose
 int64 device_type
 int64 device_orient
+int64 final_rot
+int64 intial_rot
+
 ---
 # Trajectory has been executed
 bool done 

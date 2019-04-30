@@ -66,6 +66,7 @@ find_package(orocos_kdl REQUIRED)
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
+  CorrectZ.srv
   ExecuteArm.srv
 )
 
