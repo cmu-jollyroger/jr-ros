@@ -1,0 +1,6 @@
+<launch>
+
+  <node name="kinematics1" pkg="jr_kinematics" type="jr_kinematics_node">
+  </node>
+
+</launch>
