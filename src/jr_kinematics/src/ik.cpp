@@ -68,20 +68,27 @@ motion::motion(std::string robot_desc_string) {
 	tracik_solver = new TRAC_IK::TRAC_IK(chain,ll,ul,timeout, eps,type=type);
 	
 	/* Seed for trac-ik*/
-	joint_angle_track.resize(5);
+	//joint_angle_track.resize(5);
 	joint_angle_track[0] = 0.0590396 ;
 	joint_angle_track[1] =  2.17705 ;
 	joint_angle_track[2] = 2.71345 ;
 	joint_angle_track[3] = 0.581935 ;
 	joint_angle_track[4] = 0.0;
 
-	/* Waypoint for the trajectory */
-	waypoint.resize(5);
-	waypoint(0) = -0.480871; 
-	waypoint(1) = 1.94446; 
-	waypoint(2) =  2.6957; 
-	waypoint(3) = 0.954698; 
-	waypoint(4) = 0.0; 
+	/* Horizontal Waypoint for the trajectory */
+	// waypoint_h.resize(5);
+	// waypoint_h(0) = ; 
+	// waypoint_h(1) = ; 
+	// waypoint_h(2) = ; 
+	// waypoint_h(3) = ; 
+	// waypoint_h(4) = ; 
+
+	// waypoint_v.resize(5);
+	// waypoint_v(0) = ; 
+	// waypoint_v(1) = ; 
+	// waypoint_v(2) = ; 
+	// waypoint_v(3) = ; 
+	// waypoint_v(4) = ; 
 
 	/* Homing position in Joint Angles*/
 	homing.resize(5);
@@ -90,6 +97,9 @@ motion::motion(std::string robot_desc_string) {
 	homing(2) = 2.71345;
 	homing(3) = 0.581935;
 	homing(4) = 0.0;
+
+	orient_v = tf::createQuaternionMsgFromRollPitchYaw(0,M_PI,M_PI/2); // looking down
+	orient_h = tf::createQuaternionMsgFromRollPitchYaw(0,M_PI/2,0); // looking at device
 
 	KDL::Vector linear(0,0,0); 
 	KDL::Vector angular(0.174533,0.174533,0);
@@ -198,14 +208,23 @@ bool motion::to_homing(){
 		return true;
 }
 
-bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, bool hold) {
+bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold){
 
 	// Define nan variable for readability below
 	ROS_INFO("Executing Traj\n");
 	const double nan = std::numeric_limits<float>::quiet_NaN();
 	int num_joints =5;
-	int num_points=3;
+	int num_points=4;
+	Eigen::VectorXd waypoint;
 	double jammer_rot = init_rot*M_PI/180;
+	switch(device_orient){
+		case 0 : target_pose.orientation = orient_v; 
+				 waypoint = waypoint_v; 
+				break; 
+		case 1 : target_pose.orientation = orient_h; 
+				 waypoint = waypoint_h; 
+				break;
+	}
 	KDL::JntArray target_position = getIK(target_pose);
 
 	bool homed = to_homing();
@@ -217,32 +236,32 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, bool hold)
 	Eigen::MatrixXd accelerations(num_joints,num_points);
 
 
-	positions << current_position[0], homing(0),  target_position(0),
-                 current_position[1], homing(1),  target_position(1),
-                 current_position[2], homing(2),  target_position(2),
-                 current_position[3], homing(3),  target_position(3),
-                 current_position[4], jammer_rot, jammer_rot;
+	positions << current_position[0], homing(0), waypoint(0), target_position(0),        
+             	 current_position[1], homing(1), waypoint(1), target_position(1),
+             	 current_position[2], homing(2), waypoint(2), target_position(2),        
+             	 current_position[3], homing(3), waypoint(3), target_position(3),
+             	 current_position[4], jammer_rot, jammer_rot, jammer_rot;
 
-	velocities << 0, nan, 0,
-	              0, nan, 0,
-	              0, nan, 0,
-	              0, nan, 0,
-	              0, nan, 0;
+	velocities << 0, nan, nan, 0,
+                  0, nan, nan, 0,
+                  0, nan, nan, 0,
+                  0, nan, nan, 0,
+                  0, nan, nan, 0;
 
-	accelerations << 0, nan, 0,
-	                 0, nan, 0,
-	                 0, nan, 0,
-	                 0, nan, 0,
-	                 0, nan, 0;
+    accelerations << 0, nan, nan, 0,
+                     0, nan, nan, 0,
+                     0, nan, nan, 0,
+                     0, nan, nan, 0,
+                     0, nan, nan, 0;
 
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
 	// time << 0, 15, 25, 33;
-	time << 0, 3, 30;
+	time << 0, 3, 20, 33;
 
 	// Define trajectory
 	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
-
+	
 	// Send trajectory
 	hebi::GroupCommand cmd(num_joints);
 	double period = 0.01;
@@ -326,6 +345,10 @@ Eigen::VectorXd motion::hebi_feedback(){
 int main(int argc, char **argv)
 {
 
+	/* code */
+	ros::init(argc, argv, "joint_state_publisher");
+
+	ros::start();
 	ros::NodeHandle nh;
 
 	ros::Publisher joint_pub;
@@ -334,12 +357,6 @@ int main(int argc, char **argv)
 	nh.param("/robot_description", robot_desc_string, std::string());
 
 	joint_pub = nh.advertise<sensor_msgs::JointState>("/joint_states",10);
-
-	/* code */
-	ros::init(argc, argv, "joint_state_publisher");
-
-	ros::start();
-	
 	// Check setup
 	motion ik(robot_desc_string); 
 
@@ -369,18 +386,14 @@ int main(int argc, char **argv)
 	target.orientation.z = in_q.z();target.orientation.w = in_q.w();
 	ROS_INFO("getIk\n");
 
-
-
 	/* Get IK */
 	KDL::JntArray result = ik.getIK(target);
 
 	/* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
 	bloxk out if you just want to see IK result*/
 
-	bool done = ik.exec_traj(target, 0, true);
-	std::cout<<done<<endl;
-
-
+	bool done = ik.exec_traj(target, 0, 0, true);
+	std::cout << done << endl;
 
 	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
 

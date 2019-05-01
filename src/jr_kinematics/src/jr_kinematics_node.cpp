@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <atomic>
+#include <kinematics.h>
 
 using namespace jr_kinematics;
 
@@ -31,8 +32,13 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add execute arm callback
+<<<<<<< HEAD
   execution_in_progress = false;
   return true;
+=======
+
+  
+>>>>>>> bd59e01b1ced7aa2edad88c97d9ca141b1770b95
 }
 
 /* Blocking operation for arm z correction */

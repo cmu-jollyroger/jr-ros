@@ -31,7 +31,7 @@ public:
 	/* Get pose from joint angles */
 	KDL::Frame getFK(KDL::JntArray joints);
 	/* Execute traj */
-	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, bool hold);
+	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
 	/* Break position holding after traj execution */
 	void break_hold(void);
 	/* Goes to homing from current pos */
@@ -40,8 +40,8 @@ public:
 	Eigen::VectorXd hebi_feedback();
 
 	/* Testing */
-	Eigen::VectorXd homing, waypoint;
-
+	Eigen::VectorXd homing, waypoint_v, waypoint_h;
+	geometry_msgs::Quaternion orient_v, orient_h;
 private: 
 	KDL::Chain chain;
 	std::string chain_start = "base_link";
