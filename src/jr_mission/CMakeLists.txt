@@ -107,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include/jr_common
 #  LIBRARIES jr_mission
-#  CATKIN_DEPENDS roscpp roslaunch rospy std_msgs
+ CATKIN_DEPENDS roscpp roslaunch rospy std_msgs
 #  DEPENDS system_lib
 )
 

@@ -1,0 +1,9 @@
+<launch>
+
+  <include file="$(find jr_actuation)/launch/jr_actuation.launch"/>
+  <include file="$(find jr_kinematics)/launch/jr_kinematics.launch"/>
+  
+  <node name="vision1" pkg="jr_device" type="jr_device_node.py" output="screen">
+  </node>
+
+</launch>
