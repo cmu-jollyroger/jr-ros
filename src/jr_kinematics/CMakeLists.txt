@@ -149,7 +149,13 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/jr_kinematics_node.cpp)
+## The recommended prefix ensures that target names across packages don't collide
+set(KINEMATICS_SRC
+        src/ik.cpp
+        src/jr_kinematics_node.cpp
+)
+
+add_executable(${PROJECT_NAME}_node ${KINEMATICS_SRC})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -162,9 +168,11 @@ include_directories(
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(${PROJECT_NAME}_node
+  ${catkin_LIBRARIES}
+  ${orocos_kdl_INCLUDE_DIRS}
+  ${HEBI_CPP_API_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -213,15 +221,15 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-add_executable(traj src/ik.cpp)
+add_executable(traj src/ik.cpp src/ik_test.cpp)
 target_link_libraries(traj ${catkin_LIBRARIES} 
           ${orocos_kdl_INCLUDE_DIRS}
           ${HEBI_CPP_API_LIBRARIES}
-          )
+)
 
 
-add_executable(test_model src/comm.cpp)
-target_link_libraries(test_model ${catkin_LIBRARIES} 
-          ${orocos_kdl_INCLUDE_DIRS}
-          ${HEBI_CPP_API_LIBRARIES}
-          )
+# add_executable(test_model src/comm.cpp)
+# target_link_libraries(test_model ${catkin_LIBRARIES} 
+#           ${orocos_kdl_INCLUDE_DIRS}
+#           ${HEBI_CPP_API_LIBRARIES}
+#           )

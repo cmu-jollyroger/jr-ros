@@ -16,8 +16,10 @@
 
 using namespace jr_kinematics;
 
+motion *m;
+
 /** @brief Protects execution, should use mutex, hack for now */
-std::atomic_bool execution_in_progress = false;
+bool execution_in_progress = false;
 
 void print_usage(void) {
   printf("usage: rosrun jr_kinematics\n");
@@ -32,11 +34,12 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add execute arm callback
-  motion traj; 
   //request.target_pose.position.z += request.z_offset;
-  traj.target_pose = request.target_pose; 
-  traj.target_pose.position.z += request.z_offset;
-  respond.done = traj.exec_traj(traj.target_pose, request.device_orient, request.intial_rot, true);
+  ROS_INFO("execute_arm(z=%.3f, off_z=%.3f)",
+    request.target_pose.position.z, request.z_offset);
+  m->target_pose = request.target_pose; 
+  m->target_pose.position.z += request.z_offset;
+  respond.done = m->exec_traj(m->target_pose, request.intial_rot, request.device_orient, true);
   execution_in_progress = false;
   return true;
 }
@@ -50,11 +53,10 @@ bool correct_arm_callback(CorrectArm::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add correct arm callback
-  motion traj;
-  traj.target_pose.position.x += request.delta_pose.position.x;
-  traj.target_pose.position.y += request.delta_pose.position.y;
-  traj.target_pose.position.z += request.delta_pose.position.z;
-  respond.done = traj.exec_correction(traj.target_pose);
+  m->target_pose.position.x += request.delta_pose.position.x;
+  m->target_pose.position.y += request.delta_pose.position.y;
+  m->target_pose.position.z += request.delta_pose.position.z;
+  respond.done = m->exec_correction(m->target_pose);
   execution_in_progress = false;
   return true;
 }
@@ -68,8 +70,7 @@ bool execute_hand_callback(ExecuteHand::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add execute hand callback
-  motion traj; 
-  respond.done = traj.exec_hand(request.rotation, request.delta_z);
+  respond.done = m->exec_hand(request.rotation, request.delta_z);
   execution_in_progress = false;
   return true;
 }
@@ -84,8 +85,10 @@ void *arm_command_loop(void *argu) {
 
 void sigint_handler(int signal) {
   /* Stop sending arm commands before shutdown */
-  // TODO: add arm shutdown here
+  ROS_WARN("shutting down kinematics");
+  m->reset_hold();
   ros::shutdown();
+  // exit(-1);
 }
 
 int main(int argc, char **argv) {
@@ -98,11 +101,17 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "jr_kinematics");
 
   ros::NodeHandle node;
+
   ros::ServiceServer execute_arm_serv;
   ros::ServiceServer correct_arm_serv;
   ros::ServiceServer execute_hand_serv;
+
   std::string robot_desc_string;
 	node.param("/robot_description", robot_desc_string, std::string());
+
+  motion mo(robot_desc_string);
+  m = &mo;
+
   execute_arm_serv = node.advertiseService(
     "jr_arm_execute_cmd", execute_arm_callback
   );
@@ -126,4 +135,6 @@ int main(int argc, char **argv) {
     ros::spinOnce();
     loop_rate.sleep();
   }
+
+  return 0;
 }

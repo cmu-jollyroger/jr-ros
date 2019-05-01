@@ -4,7 +4,7 @@
 # target_pose: Target pose for arm execution
 geometry_msgs/Pose target_pose
 # z_offset: Z offset for "gravity compensation"
-int64 z_offset
+float64 z_offset
 # device_type: Type of device
 int64 device_type
 # device_orient: Whether device is facing front or up
