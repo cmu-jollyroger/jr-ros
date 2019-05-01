@@ -101,7 +101,8 @@ int main(int argc, char **argv) {
   ros::ServiceServer execute_arm_serv;
   ros::ServiceServer correct_arm_serv;
   ros::ServiceServer execute_hand_serv;
-
+  std::string robot_desc_string;
+	node.param("/robot_description", robot_desc_string, std::string());
   execute_arm_serv = node.advertiseService(
     "jr_arm_execute_cmd", execute_arm_callback
   );
