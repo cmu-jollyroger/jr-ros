@@ -70,6 +70,7 @@ private:
 	
 	Lookup lookup;
 	std::shared_ptr<Group> group;
+	std::shared_ptr<Group> group_hand;
 	
 	bool should_hold_position;
 };
