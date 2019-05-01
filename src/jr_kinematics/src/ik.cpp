@@ -179,30 +179,30 @@ bool motion::to_homing(){
 	Eigen::MatrixXd velocities(NUM_JOINTS, num_points);
 	Eigen::MatrixXd accelerations(NUM_JOINTS, num_points);
 	ROS_INFO("Declare");
-	Eigen::RowVectorXd positions_hand(num_points);
-	Eigen::RowVectorXd velocities_hand(num_points);
-	Eigen::RowVectorXd accelerations_hand(num_points);
+	// Eigen::RowVectorXd positions_hand(num_points);
+	// Eigen::RowVectorXd velocities_hand(num_points);
+	// Eigen::RowVectorXd accelerations_hand(num_points);
 	ROS_INFO("Load pos");
 	positions << current_position[0], homing(0),homing(0),
 	             current_position[1], homing(1),homing(1),
 	             current_position[2], homing(2),homing(2),
 	             current_position[3], homing(3),homing(3);
 	ROS_INFO("Loading hand");
-	positions_hand(0,0) =  current_position[4]; 
-	positions_hand(0,1) = homing(4); 
-	positions_hand(0,2) = homing(4);
+	// positions_hand(0,0) =  current_position[4]; 
+	// positions_hand(0,1) = homing(4); 
+	// positions_hand(0,2) = homing(4);
 	ROS_INFO("loded hominng pos");
 	velocities << 0, nan, 0,
                   0, nan, 0,
                   0, nan, 0,
                   0, nan, 0;
-    velocities_hand<<0, nan, 0;
+    //velocities_hand<<0, nan, 0;
 
     accelerations << 0, nan, 0,
                      0, nan, 0,
                      0, nan, 0,
                      0, nan, 0;
-    accelerations_hand<<0, nan, 0;
+    //accelerations_hand<<0, nan, 0;
 	printf("loded vel and accel");
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
@@ -210,7 +210,7 @@ bool motion::to_homing(){
 
 	// Define trajectory
 	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
-	auto hand_traj = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions_hand, &velocities_hand, &accelerations_hand);
+	//auto hand_traj = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions_hand, &velocities_hand, &accelerations_hand);
 
 
 	hebi::GroupCommand hand_cmd(group_hand->size());
@@ -220,7 +220,8 @@ bool motion::to_homing(){
 	Eigen::VectorXd pos_cmd(NUM_JOINTS);
 	Eigen::VectorXd vel_cmd(NUM_JOINTS);
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
-	Eigen::VectorXd vel_cmd_hand(group_hand->size());
+	pos_cmd_hand[0] = homing(4);
+	// Eigen::VectorXd vel_cmd_hand(group_hand->size());
 	/* Break position holding before sending next command */
 	reset_hold();
 
@@ -228,11 +229,10 @@ bool motion::to_homing(){
 	{
 	  // Pass "nullptr" in to ignore a term.
 	  trajectory->getState(t, &pos_cmd, &vel_cmd, nullptr);
-	  hand_traj->getState(t, &pos_cmd_hand, &vel_cmd_hand, nullptr);
+	  //hand_traj->getState(t, &pos_cmd_hand, &vel_cmd_hand, nullptr);
 	  cmd.setPosition(pos_cmd);
 	  cmd.setVelocity(vel_cmd);
 	  hand_cmd.setPosition(pos_cmd_hand);
-	  hand_cmd.setVelocity(vel_cmd_hand);
 	  group->sendCommand(cmd);
 	  group_hand->sendCommand(hand_cmd);
 	  std::this_thread::sleep_for(std::chrono::milliseconds((long int) (period * 1000)));
