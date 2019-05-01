@@ -32,6 +32,9 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add execute arm callback
+  motion traj; 
+  request.target_pose.position.z += request.z_offset;
+  respond.done = traj.exec_traj(request.target_pose, request.device_orient, request.intial_rot, true);
   execution_in_progress = false;
   return true;
 }
