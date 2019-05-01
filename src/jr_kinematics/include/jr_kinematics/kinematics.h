@@ -33,7 +33,9 @@ public:
 	/* Execute traj */
 	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
 	/* Break position holding after traj execution */
-	void break_hold(void);
+	void reset_hold(void);
+	/* Set should hold position */
+	void set_hold(void);
 	/* Check if should hold position */
 	bool should_hold_pos(void);
 	/* Goes to homing from current pos */

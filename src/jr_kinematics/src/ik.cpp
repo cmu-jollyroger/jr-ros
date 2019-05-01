@@ -76,12 +76,6 @@ motion::motion(std::string robot_desc_string) {
 	joint_angle_track[4] = 0.0;
 
 	/* Horizontal Waypoint for the trajectory */
-	
-
-
-
-
-
 	waypoint_h.resize(5);
 	waypoint_h(0) = -0.704595; 
 	waypoint_h(1) =    2.03822; 
@@ -143,7 +137,7 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 	int rc=tracik_solver->CartToJnt(nominal,end_effector_pose,result, tolerances);
 	if (rc > 0) {
 
-		std::cout << "ik succeed " << std::endl;
+		ROS_INFO("ik succeed");
 		
 		for (uint j=0; j<result.data.size(); j++ ) {
 		joint_angle_track[j] = result(j);
@@ -153,7 +147,7 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 		
 	}
 	else {
-		std::cout << "ik failed" << std::endl;
+		ROS_INFO("ik failed");
 	}
 	std::cout << "rc:" << rc << std::endl;
 
@@ -202,6 +196,10 @@ bool motion::to_homing(){
 	double duration = trajectory->getDuration();
 	Eigen::VectorXd pos_cmd(num_joints);
 	Eigen::VectorXd vel_cmd(num_joints);
+
+	/* Break position holding before sending next command */
+	reset_hold();
+
 	for (double t = 0; t < duration; t += period)
 	{
 	  // Pass "nullptr" in to ignore a term.
@@ -211,7 +209,27 @@ bool motion::to_homing(){
 	  group->sendCommand(cmd);
 	  std::this_thread::sleep_for(std::chrono::milliseconds((long int) (period * 1000)));
 	}
-		return true;
+
+	// after last iteration, the cmd should be hold target
+	set_hold();
+
+	/* Hold position in background */
+	std::thread t([pos_cmd, vel_cmd, num_joints, period, this](){
+		ROS_INFO("hold position thread");
+		while (should_hold_pos()) {
+			hebi::GroupCommand hold_cmd(num_joints);
+			hold_cmd.setPosition(pos_cmd);
+			hold_cmd.setVelocity(vel_cmd);
+			group->sendCommand(hold_cmd);
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds((long int) (period * 1000)));
+		}
+		ROS_INFO("hold position loop end");
+	});
+
+	t.detach();
+	
+	return true;
 }
 
 bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold){
@@ -276,7 +294,7 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 	Eigen::VectorXd vel_cmd(num_joints);
 
 	/* Break position holding before sending next command */
-	break_hold();
+	reset_hold();
 
 	/* Execution of trajectory is blocking */
 	for (double t = 0; t < duration; t += period)
@@ -292,7 +310,7 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 
 	// after last iteration, the cmd should be hold target
 	if (hold) {
-		should_hold_position = true;
+		set_hold();
 	}
 
 	/* Hold position in background */
@@ -306,7 +324,7 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds((long int) (period * 1000)));
 		}
-		ROS_INFO("holdvoid position loop end");
+		ROS_INFO("hold position loop end");
 	});
 
 	t.detach();
@@ -315,41 +333,27 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 
 }
 
-void motion::break_hold(void) {
-	ROS_DEBUG("break_hold()");
+void motion::reset_hold(void) {
+	ROS_INFO("reset_hold()");
 	should_hold_position = false;
+}
+
+void motion::set_hold(void) {
+	ROS_INFO("set_hold()");
+	should_hold_position = true;
 }
 
 bool motion::should_hold_pos(void) {
 	return should_hold_position;
 }
 
-// bool motion::hebi_send_command( Eigen::VectorXd pos){
-	
-// 	Eigen::VectorXd efforts(group->size());
-	
-// 	efforts.setZero();
-	
-// 	hebi::GroupCommand groupCommand(group->size());
-
-// 	groupCommand.setEffort(efforts);
-// 	groupCommand.setPosition(pos);
-// 	group->sendCommand(groupCommand);
-// 	return true;
-// }
-
-
-
 Eigen::VectorXd motion::hebi_feedback(){ 
-
-
 	group->setFeedbackFrequencyHz(5);
 	GroupFeedback group_fbk(group->size());
 	if (group->getNextFeedback(group_fbk))
 	{
-	  std::cout << "Got feedback. Positions are: " << std::endl << group_fbk.getPosition() << std::endl;
-	  return(group_fbk.getPosition());
-	  
+		std::cout << "Got feedback. Positions are: " << std::endl << group_fbk.getPosition() << std::endl;
+		return(group_fbk.getPosition());
 	}
 	group->clearFeedbackHandlers();
 
@@ -357,8 +361,9 @@ Eigen::VectorXd motion::hebi_feedback(){
 
 int main(int argc, char **argv)
 {
-
-	/* code */
+	/* This node is for experiments. All service calls in final integration
+	 * are located in jr_kinematics_node.cpp
+	 */
 	ros::init(argc, argv, "joint_state_publisher");
 
 	ros::start();
@@ -375,10 +380,8 @@ int main(int argc, char **argv)
 
 	geometry_msgs::Pose target; 
 
-	
-	
-	target.position.x =0.46;
-	target.position.y =0.0;
+	target.position.x = 0.46;
+	target.position.y = 0.0;
 	target.position.z = 0.50;
 
 	/* EXAMPLE 2: XYZ position*/
@@ -389,10 +392,6 @@ int main(int argc, char **argv)
 	/* EXAMPLE : Orientation of end effector */
 
 	//tf::Quaternion in_q(-0.491329, 0.487592 ,0.513436 ,0.507182);  // y-vertical - point straight to the side
-
-
-
-
 	//tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI,M_PI/2); // horizontal - point straight down
 	tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI/2,0); // x-vertical - point staight to the device
 	target.orientation.x = in_q.x();target.orientation.y = in_q.y();
@@ -411,8 +410,6 @@ int main(int argc, char **argv)
 		continue;
 	}
 	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
-
-
 
 	// printf("Got here_1\n");
 	// tf::TransformBroadcaster br;
