@@ -333,6 +333,38 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 
 }
 
+
+bool motion::exec_correction(geometry_msgs::Pose corrected_pose){ 
+	Eigen::VectorXd current_pos = hebi_feedback();
+	int num_joints =5;
+	double period  = 0.01;
+	Eigen::VectorXd pos(num_joints);
+	KDL::JntArray pos_ = getIK(corrected_pose);
+	pos << 	pos(0), 
+			pos(1), 
+			pos(2), 
+			pos(3),
+			current_pos(4);
+
+	set_hold();
+	/* Hold corrected position */
+	std::thread t([pos, num_joints, period, this](){
+		ROS_INFO("hold position thread");
+		while (should_hold_pos()) {
+			hebi::GroupCommand hold_cmd(num_joints);
+			hold_cmd.setPosition(pos);
+			group->sendCommand(hold_cmd);
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds((long int) (period * 1000)));
+		}
+		ROS_INFO("hold position loop end");
+	});
+
+	t.detach();
+
+
+}
+
 void motion::reset_hold(void) {
 	ROS_INFO("reset_hold()");
 	should_hold_position = false;
@@ -410,7 +442,6 @@ int main(int argc, char **argv)
 		continue;
 	}
 	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
-
 	// printf("Got here_1\n");
 	// tf::TransformBroadcaster br;
  //  	tf::Transform transform;

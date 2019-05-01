@@ -32,6 +32,8 @@ public:
 	KDL::Frame getFK(KDL::JntArray joints);
 	/* Execute traj */
 	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
+	/* Execute correction */
+	bool exec_correction(geometry_msgs::Pose corrected_pose); 
 	/* Break position holding after traj execution */
 	void reset_hold(void);
 	/* Set should hold position */
@@ -46,6 +48,7 @@ public:
 	/* Testing */
 	Eigen::VectorXd homing, waypoint_v, waypoint_h;
 	geometry_msgs::Quaternion orient_v, orient_h;
+	geometry_msgs::Pose target_pose;
 private: 
 	KDL::Chain chain;
 	std::string chain_start = "base_link";
@@ -65,7 +68,7 @@ private:
 	
 	Lookup lookup;
 	std::shared_ptr<Group> group;
-
+	
 	bool should_hold_position;
 };
 
