@@ -31,12 +31,14 @@ public:
 	/* Get pose from joint angles */
 	KDL::Frame getFK(KDL::JntArray joints);
 	/* Execute traj */
-	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot);
+	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, bool hold);
+	/* Break position holding after traj execution */
+	void break_hold(void);
 	/* Goes to homing from current pos */
 	bool to_homing();
 	/* Reads in current joint angles */
 	Eigen::VectorXd hebi_feedback();
-	
+
 	/* Testing */
 	Eigen::VectorXd homing, waypoint;
 
@@ -59,6 +61,8 @@ private:
 	
 	Lookup lookup;
 	std::shared_ptr<Group> group;
+
+	bool should_hold_position;
 };
 
 #endif /* __KINEMATICS_H__ */

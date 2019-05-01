@@ -11,8 +11,12 @@
 #include <jr_kinematics/ExecuteHand.h>
 #include <pthread.h>
 #include <signal.h>
+#include <atomic>
 
 using namespace jr_kinematics;
+
+/** @brief Protects execution, should use mutex, hack for now */
+std::atomic_bool execution_in_progress = false;
 
 void print_usage(void) {
   printf("usage: rosrun jr_kinematics\n");
@@ -21,19 +25,40 @@ void print_usage(void) {
 /* Blocking operation for arm execution */
 bool execute_arm_callback(ExecuteArm::Request  &request,
                         ExecuteArm::Response &respond) {
+  if (execution_in_progress) {
+    ROS_WARN("arm execution in progress");
+    return false;
+  }
+  execution_in_progress = true;
   // TODO: add execute arm callback
+  execution_in_progress = false;
+  return true;
 }
 
 /* Blocking operation for arm z correction */
 bool correct_arm_callback(CorrectArm::Request  &request,
                           CorrectArm::Response &respond) {
+  if (execution_in_progress) {
+    ROS_WARN("arm execution in progress");
+    return false;
+  }
+  execution_in_progress = true;
   // TODO: add correct arm callback
+  execution_in_progress = false;
+  return true;
 }
 
 /* Blocking operation for arm z correction */
 bool execute_hand_callback(ExecuteHand::Request  &request,
                            ExecuteHand::Response &respond) {
+  if (execution_in_progress) {
+    ROS_WARN("arm execution in progress");
+    return false;
+  }
+  execution_in_progress = true;
   // TODO: add execute hand callback
+  execution_in_progress = false;
+  return true;
 }
 
 /**
