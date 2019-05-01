@@ -11,7 +11,7 @@
 #include <jr_kinematics/ExecuteHand.h>
 #include <pthread.h>
 #include <signal.h>
-
+#include <kinematics.h>
 using namespace jr_kinematics;
 
 void print_usage(void) {
@@ -22,6 +22,8 @@ void print_usage(void) {
 bool execute_arm_callback(ExecuteArm::Request  &request,
                         ExecuteArm::Response &respond) {
   // TODO: add execute arm callback
+
+  
 }
 
 /* Blocking operation for arm z correction */
