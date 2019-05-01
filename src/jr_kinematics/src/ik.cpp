@@ -68,7 +68,7 @@ motion::motion(std::string robot_desc_string) {
 	tracik_solver = new TRAC_IK::TRAC_IK(chain,ll,ul,timeout, eps,type=type);
 	
 	/* Seed for trac-ik*/
-	//joint_angle_track.resize(5);
+	joint_angle_track.resize(5);
 	joint_angle_track[0] = 0.0590396 ;
 	joint_angle_track[1] =  2.17705 ;
 	joint_angle_track[2] = 2.71345 ;
@@ -76,12 +76,18 @@ motion::motion(std::string robot_desc_string) {
 	joint_angle_track[4] = 0.0;
 
 	/* Horizontal Waypoint for the trajectory */
-	// waypoint_h.resize(5);
-	// waypoint_h(0) = ; 
-	// waypoint_h(1) = ; 
-	// waypoint_h(2) = ; 
-	// waypoint_h(3) = ; 
-	// waypoint_h(4) = ; 
+	
+
+
+
+
+
+	waypoint_h.resize(5);
+	waypoint_h(0) = -0.704595; 
+	waypoint_h(1) =    2.03822; 
+	waypoint_h(2) =    2.37278; 
+	waypoint_h(3) =    0.52097; 
+	waypoint_h(4) = -0.0360714; 
 
 	// waypoint_v.resize(5);
 	// waypoint_v(0) = ; 
@@ -291,13 +297,13 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 
 	/* Hold position in background */
 	std::thread t([&, this](){
-		ROS_DEBUG("hold position thread");
+		ROS_INFO("hold position thread");
 		while (should_hold_position) {
 			group->sendCommand(cmd);
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds((long int) (period * 1000)));
 		}
-		ROS_DEBUG("hold position loop end");
+		ROS_INFO("hold position loop end");
 	});
 
 	t.detach();
@@ -392,9 +398,11 @@ int main(int argc, char **argv)
 	/* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
 	bloxk out if you just want to see IK result*/
 
-	bool done = ik.exec_traj(target, 0, 0, true);
+	bool done = ik.exec_traj(target, 0, 1, true);
 	std::cout << done << endl;
-
+	while(1){
+		continue;
+	}
 	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
 
 
