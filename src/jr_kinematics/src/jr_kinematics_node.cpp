@@ -51,7 +51,9 @@ bool correct_arm_callback(CorrectArm::Request  &request,
   execution_in_progress = true;
   // TODO: add correct arm callback
   motion traj;
-  traj.target_pose.position += request.delta_pose.position;
+  traj.target_pose.position.x += request.delta_pose.position.x;
+  traj.target_pose.position.y += request.delta_pose.position.y;
+  traj.target_pose.position.z += request.delta_pose.position.z;
   respond.done = traj.exec_correction(traj.target_pose);
   execution_in_progress = false;
   return true;
@@ -66,6 +68,8 @@ bool execute_hand_callback(ExecuteHand::Request  &request,
   }
   execution_in_progress = true;
   // TODO: add execute hand callback
+  motion traj; 
+  respond.done = traj.exec_hand(request.rotation, request.delta_z);
   execution_in_progress = false;
   return true;
 }

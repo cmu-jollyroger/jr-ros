@@ -34,6 +34,8 @@ public:
 	bool exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
 	/* Execute correction */
 	bool exec_correction(geometry_msgs::Pose corrected_pose); 
+	/* Execute the latest traj */
+	bool exec_hand(int rotate, int delta_z);
 	/* Break position holding after traj execution */
 	void reset_hold(void);
 	/* Set should hold position */

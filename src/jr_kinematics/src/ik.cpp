@@ -334,16 +334,56 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 }
 
 
+bool motion::exec_hand(int rotate, int delta_z){
+	Eigen::VectorXd current_pos = hebi_feedback();
+	double jam_angle = rotate *M_PI/180;
+	int num_joints =5;
+	double period  = 0.01;
+	Eigen::VectorXd pos(num_joints);
+	if(delta_z == 0){ 
+		pos<< current_pos(0), 
+			  current_pos(1), 
+			  current_pos(2), 
+			  current_pos(3), 
+			  jam_angle;
+	}
+	else{ 
+		target_pose.position.z+= delta_z;
+		KDL::JntArray pos_ = getIK(target_pose);
+		pos << 	pos_(0), 
+			pos_(1), 
+			pos_(2), 
+			pos_(3),
+			current_pos(4);
+	}
+	set_hold();
+	/* Hold corrected position */
+	std::thread t([pos, num_joints, period, this](){
+		ROS_INFO("hold position thread");
+		while (should_hold_pos()) {
+			hebi::GroupCommand hold_cmd(num_joints);
+			hold_cmd.setPosition(pos);
+			group->sendCommand(hold_cmd);
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds((long int) (period * 1000)));
+		}
+		ROS_INFO("hold position loop end");
+	});
+
+	t.detach();
+	return true;
+}
+
 bool motion::exec_correction(geometry_msgs::Pose corrected_pose){ 
 	Eigen::VectorXd current_pos = hebi_feedback();
 	int num_joints =5;
 	double period  = 0.01;
 	Eigen::VectorXd pos(num_joints);
 	KDL::JntArray pos_ = getIK(corrected_pose);
-	pos << 	pos(0), 
-			pos(1), 
-			pos(2), 
-			pos(3),
+	pos << 	pos_(0), 
+			pos_(1), 
+			pos_(2), 
+			pos_(3),
 			current_pos(4);
 
 	set_hold();
@@ -361,6 +401,7 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose){
 	});
 
 	t.detach();
+	return true;
 
 
 }
