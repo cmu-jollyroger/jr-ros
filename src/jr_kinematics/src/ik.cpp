@@ -296,14 +296,17 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 	}
 
 	/* Hold position in background */
-	std::thread t([&, this](){
+	std::thread t([pos_cmd, vel_cmd, num_joints, period, this](){
 		ROS_INFO("hold position thread");
-		while (should_hold_position) {
-			group->sendCommand(cmd);
+		while (should_hold_pos()) {
+			hebi::GroupCommand hold_cmd(num_joints);
+			hold_cmd.setPosition(pos_cmd);
+			hold_cmd.setVelocity(vel_cmd);
+			group->sendCommand(hold_cmd);
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds((long int) (period * 1000)));
 		}
-		ROS_INFO("hold position loop end");
+		ROS_INFO("holdvoid position loop end");
 	});
 
 	t.detach();
@@ -315,6 +318,10 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 void motion::break_hold(void) {
 	ROS_DEBUG("break_hold()");
 	should_hold_position = false;
+}
+
+bool motion::should_hold_pos(void) {
+	return should_hold_position;
 }
 
 // bool motion::hebi_send_command( Eigen::VectorXd pos){
