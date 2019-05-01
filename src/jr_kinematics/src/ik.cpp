@@ -237,7 +237,7 @@ bool motion::to_homing(){
 
 			hebi::GroupCommand hand_hold_cmd(1);
 			hand_hold_cmd.setPosition(pos_cmd_hand);
-			group_hand->sendCommand(hand_hold_cmd);
+			//group_hand->sendCommand(hand_hold_cmd);
 
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds((long int) (period * 1000)));
