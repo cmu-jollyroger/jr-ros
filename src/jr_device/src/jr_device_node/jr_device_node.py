@@ -4,6 +4,7 @@ import sys
 import copy
 import rospy
 import time
+import traceback
 import numpy as np
 import matplotlib
 import math
@@ -19,7 +20,8 @@ import keyboard
 from PIL import Image
 from jr_actuation.srv import *
 from jr_kinematics.srv import *
-from jr_device.srv import PoseCmd
+from jr_device.srv import *
+from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Point, Quaternion, Twist
 
 
 depthScale = 0
@@ -80,7 +82,7 @@ def find_closest_area(img):
 
 def translate_from_camera_to_arm_frame(x, y, z):
 
-	y = y + 58
+	y = y + 61
 	z = z - 22
 	x = x
 
@@ -111,15 +113,14 @@ def convert_x_y_value(x, y, z, w, h):
 	print (yw)
 	print (xw)
 
-	return xw, yw
+	return xw/2, yw
 
 def device_orientation_wheel(image, depth_image):
 
 	hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-	lower_blue = (100,100,75)
+	lower_blue = (100,100,80)
 	upper_blue = (130,255,255)
-
 
 	mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
 
@@ -138,6 +139,8 @@ def device_orientation_wheel(image, depth_image):
 	M = cv2.moments(thresh)
 	 
 	# calculate x,y coordinate of center
+	print M
+
 	cX1 = int(M["m10"] / M["m00"])
 	cY1 = int(M["m01"] / M["m00"])
 
@@ -148,24 +151,20 @@ def device_orientation_wheel(image, depth_image):
 
 	#get white part centroid
 
-	light_white = (0, 0, 160)
+	light_white = (0, 0, 140)
 	dark_white = (100, 60, 255) 
 
 	lo_square = np.full((10, 10, 3), light_white, dtype=np.uint8) / 255.0
 	do_square = np.full((10, 10, 3), dark_white, dtype=np.uint8) / 255.0
 
-
 	mask = cv2.inRange(hsv_image, light_white, dark_white)
 
 	result = cv2.bitwise_and(hsv_image, hsv_image, mask=mask)
-
 
 	rgb_image = cv2.cvtColor(result, cv2.COLOR_HSV2RGB)
 	gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
 
 	ret,thresh = cv2.threshold(gray_image,1,255,0)
-
-
 
 	M = cv2.moments(thresh)
 	 
@@ -173,9 +172,7 @@ def device_orientation_wheel(image, depth_image):
 	cX2 = int(M["m10"] / M["m00"])
 	cY2 = int(M["m01"] / M["m00"])
 
-
 	#look for green
-
 	print ("Looking for Green")
 
 	#modify hsv image
@@ -246,21 +243,12 @@ def device_orientation_wheel(image, depth_image):
 
 	x, y = convert_x_y_value(cX1, cY1, depth, w, h)
 
-	dist = cY2 - cY1
-	orientation = 0
-	if (dist > 80):
-		orientation = 1
-
-
-	return x, y, depth, orientation
-
-
-
+	return x, y, depth
 
 def device_orientation_shuttle(image):
     hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-    lower_blue = (100,130,75)
+    lower_blue = (100,130,90)
     upper_blue = (130,255,255)
 
     lo_square = np.full((10, 10, 3), lower_blue, dtype=np.uint8) / 255.0
@@ -294,7 +282,7 @@ def device_orientation_shuttle(image):
     #print ("FOUND COUNTOUR")
 
 
-    light_white = (0, 0, 160)
+    light_white = (0, 0, 140)
     dark_white = (100, 60, 255)
 
     lo_square = np.full((10, 10, 3), light_white, dtype=np.uint8) / 255.0
@@ -345,7 +333,7 @@ def device_orientation_shuttle(image):
     #closed
     pos = 1
     #open
-    if (orientation == 1 and (max(pipes[0][1] - pipes[1][1]) - y) > 30):
+    if (orientation == 1 and (max(pipes[0][1], pipes[1][1]) - y) > 30):
         pos = 0
 
     if (orientation == 0 and abs((pipes[0][0] + pipes[1][0])/2 - x) <= 30):
@@ -355,14 +343,7 @@ def device_orientation_shuttle(image):
     print (pos)
 
 
-
-    return x, y, depth, orientation
-
-
-
-
-
-
+    return x, y, depth, orientation, pos
 
 def device_orientation_breaker(image, switchNum):
 
@@ -434,6 +415,9 @@ def run_pose_detection():
 	global clipping_distance
 	global inner_clipping_distance
 	global depthScale
+
+	print "Initializing pose detection"
+
 	# Declare pointcloud object, for calculating pointclouds and texture mappings
 	pc = rs.pointcloud()
 	# We want the points object to be persistent so we can display the last cloud when a frame drops
@@ -454,7 +438,7 @@ def run_pose_detection():
 
 		depth_sensor = profile.get_device().first_depth_sensor()
 		depth_scale = depth_sensor.get_depth_scale()
-		print("Depth Scale is: " , depth_scale)
+		print "Depth Scale is:" , depth_scale
 		depthScale = depth_scale
 
 		profile2 = pipe.get_active_profile()
@@ -464,7 +448,6 @@ def run_pose_detection():
 
 		fx, fy = depth_intrinsics.fx, depth_intrinsics.fy
 
-
 		clipping_distance_in_meters = 1.1 #1 meter
 		inner_clipping_distance_in_meters = 0.5
 		clipping_distance = clipping_distance_in_meters / depth_scale
@@ -473,23 +456,24 @@ def run_pose_detection():
 		align_to = rs.stream.color
 		align = rs.align(align_to)
 
-
 		filename = sys.argv[-1]
 
 		f = open(filename,'r')
 		lines = f.readlines()
 
-
 		rospy.init_node('pose_detection_server')
 		s = rospy.Service('pose_srv', PoseCmd, detect_pose)
 
-
 		print "Ready for pose detection"
 		rospy.spin()
-	finally:
+
 		pipe.stop()
 		f.close()
 
+	except Exception as e:
+		print e
+		traceback.print_exc()
+		return
 
 def detect_pose(req):
 	types = req.dev_type
@@ -507,22 +491,29 @@ def detect_pose(req):
 		depth_frame = aligned_frames.get_depth_frame()
 
 
-		print(depth_frame)
+		station = req.station_id
+
+		print ('Station')
+		print (station)
+
+		print ('Types')
+		print (types)
 
 		depth_image = np.asanyarray(depth_frame.get_data())
 		color_image = np.asanyarray(color_frame.get_data())
 
 		if (station == 4):
-			special_station_offset = 100
+			special_station_offset = 120
 		if (station == 5):
-			special_station_offset = -100
+			special_station_offset = -120
 
-		depth_image = depth_image[300:, 400+special_station_offset:880+special_station_offset]
-		color_image = color_image[300:, 400+special_station_offset:880+special_station_offset]
+		depth_image = depth_image[300:, 440+special_station_offset:840+special_station_offset]
+		color_image = color_image[300:, 440+special_station_offset:840+special_station_offset]
 		
-
 		print (depth_image.shape)
 		print (color_image.shape)
+
+		print color_image
 
 		grey_color = 0
 		depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
@@ -534,27 +525,23 @@ def detect_pose(req):
 		y = 0
 		z = 0
 		o = 0
+		pos = 0
+		print "Identifying Device"
 		if (types == 2):
-			x, y, z, o = device_orientation_shuttle(color_image_bg_removed)
+			x, y, z, o, pos = device_orientation_shuttle(color_image_bg_removed)
 			x, y, z = translate_from_camera_to_arm_frame(x, y, z)
-			if orientation == 1:
-				print (printStatement + " and close shuttlecock valve")
-			else:
-				print (printStatement + " and open shuttlecock valve")
-
+			
 			print ("Device relative to Arm frame")
 			print ("(" + str(x) + ", " + str(y)  + ", " + str(z)  + ", " + str(o) + ")" )
 
 		elif (types == 0 or types == 1):
-			x, y, z, o = device_orientation_wheel(color_image_bg_removed, depth_image)
+			x, y, z = device_orientation_wheel(color_image_bg_removed, depth_image)
 			x, y, z = translate_from_camera_to_arm_frame(x, y, z)
-			print (printStatement + " and rotate wheel valve to " + str(orientation) + " degrees")
 			print ("Device relative to Arm frame")
 			print ("(" + str(x) + ", " + str(y)  + ", " + str(z)  + ", " + str(o) + ")" )
 
-
 		elif (types == 3):
-			printStatement = printStatement + " For Breaker " + tasks[0]
+			printStatement = printStatement + " For Breaker "
 			switch = req.dev_id
 		
 			x, y, z = device_orientation_breaker(color_image_bg_removed, switch)
@@ -564,23 +551,23 @@ def detect_pose(req):
 			x, y, z = translate_from_camera_to_arm_frame(x, y, z)
 			print ("(" + str(x) + ", " + str(y)  + ", " + str(z)  +  ")" )
 
-		points = Point(x,y,z)
-		resp = pose_srvResponse()
-		resp.pose = points
-		resp.dev_ori = o
+		#points = Point(float(x),float(y),float(z))
+		points = Point(float(z)/100,float(x)/100,float(y + 10)/100)
+		quaternion = Quaternion(0, 0, 0, 1)
+		resp = PoseCmdResponse()
+		resp.pose = Pose(points, quaternion)
+		resp.dev_pos = 1
 		return resp
 
 	except Exception as e: 
-		print(e)
+		#print(e)
+		traceback.print_exc()
 		print('In EXCEPT!')
-		points = Point(0,0,0)
-		resp = pose_srvResponse()
-		resp.pose = points
-		resp.dev_ori = 1
+		points = Point(0.0,0.0,0.0)
+		quaternion = Quaternion(0.0,0.0,0.0,0.0)
+		resp = PoseCmdResponse()
+		resp.pose = Pose(points, quaternion)
 		return resp
-
-	print ("Processing .....")
-
 
 if __name__ == '__main__':
 	run_pose_detection()

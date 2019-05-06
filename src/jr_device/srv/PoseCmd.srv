@@ -5,9 +5,9 @@ int8 dev_type
 int8 dev_id
 # station_id: For special cases for corner
 int8 station_id
----
 # dev_ori: Orientation of device rotation plane (if applicable)
 int8 dev_ori
+---
 # dev_pos: Specifically for shuttlecock
 int8 dev_pos
 # pose: Pose of device frame to reach to
