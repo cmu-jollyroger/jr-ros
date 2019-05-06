@@ -10,7 +10,7 @@ int main(int argc, char **argv)
 	 * are located in jr_kinematics_node.cpp
 	 */
 	ros::init(argc, argv, "joint_state_publisher");
-
+	//ros::init(argc, argv, "ik_test");
 	ros::start();
 	ros::NodeHandle nh;
 
@@ -22,76 +22,79 @@ int main(int argc, char **argv)
 	joint_pub = nh.advertise<sensor_msgs::JointState>("/joint_states",10);
 	// Check setup
 	motion ik(robot_desc_string); 
+	ik.hebi_feedback_arm(); 
+	ik.hebi_feedback_hand();
+	
+	// geometry_msgs::Pose target; 
 
-	geometry_msgs::Pose target; 
+	// // target.position.x = 0.36;
+	// // target.position.y = 0.0;
+	// // target.position.z = 0.70;
+	// target.position.x = 0.49;
+	// target.position.y = 0.0;
+	// target.position.z = 0.60;
+	// // 	/* EXAMPLE 2: XYZ position*/
+	// // 	// target.position.x =0.03454650;
+	// // 	// target.position.y =0.252262;
+	// // 	// target.position.z = 0.112877;
 
-	target.position.x = 0.46;
-	target.position.y = 0.0;
-	target.position.z = 0.50;
+	// // 	/* EXAMPLE : Orientation of end effector */
 
-	/* EXAMPLE 2: XYZ position*/
-	// target.position.x =0.03454650;
-	// target.position.y =0.252262;
-	// target.position.z = 0.112877;
+	// //tf::Quaternion in_q(-0.491329, 0.487592 ,0.513436 ,0.507182);  // y-vertical - point straight to the side
+	// //tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI,M_PI/2); // horizontal - point straight down
+	// tf::Quaternion in_q = tf::createQuaternionFromRPY(M_PI/2,0,0); // x-vertical - point staight to the device
+	// // target.orientation.x = in_q.x();target.orientation.y = in_q.y();
+	// // target.orientation.z = in_q.z();target.orientation.w = in_q.w();
+	// ROS_INFO("getIk\n");
 
-	/* EXAMPLE : Orientation of end effector */
+	// /* Get IK */
+	// KDL::JntArray result = ik.getIK(target, 0);
+	// /* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
+	// bloxk out if you just want to see IK result*/
 
-	//tf::Quaternion in_q(-0.491329, 0.487592 ,0.513436 ,0.507182);  // y-vertical - point straight to the side
-	//tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI,M_PI/2); // horizontal - point straight down
-	tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI/2,0); // x-vertical - point staight to the device
-	target.orientation.x = in_q.x();target.orientation.y = in_q.y();
-	target.orientation.z = in_q.z();target.orientation.w = in_q.w();
-	ROS_INFO("getIk\n");
-
-	/* Get IK */
-	KDL::JntArray result = ik.getIK(target);
-
-	/* Execute Trajectory i.e. current pos -> homing -> waypoint -> target position : Comment this 
-	bloxk out if you just want to see IK result*/
-
-	bool done = ik.exec_traj(target, 0, 1, true);
-	std::cout << done << endl;
-	while(1){
-		continue;
-	}
-	/* Uncomment block below to get RVIZ visualization of target pose and IK*/
+	// // bool done = ik.exec_arm(target, 0, 1, true);
+	// // std::cout << done << endl;
+	
+	// /* Uncomment block below to get RVIZ visualization of target pose and IK*/
 	// printf("Got here_1\n");
 	// tf::TransformBroadcaster br;
- //  	tf::Transform transform;
- //  	transform.setOrigin( tf::Vector3(target.position.x, target.position.y, target.position.z) );
- //  	transform.setRotation(in_q);
+  // 	tf::Transform transform;
+  // 	transform.setOrigin( tf::Vector3(target.position.x, target.position.y, target.position.z) );
+  // 	transform.setRotation(in_q);
   	
- //  	printf("Got here_2\n");
+  // 	printf("Got here_2\n");
   
 
- //  	sensor_msgs::JointState joint_state;
- //  	joint_state.position.resize(5);
- //  	joint_state.name.resize(5);
- //  	joint_state.name[0] = "base_to_base";
- //    joint_state.name[1] = "base_to_elbow_1";
- //    joint_state.name[2] = "elbow_1_to_elbow_2";
- //    joint_state.name[3] = "elbow_2_to_elbow_3";
- //    joint_state.name[4] = "elbow_3_to_end_eff";
+  // 	sensor_msgs::JointState joint_state;
+  // 	joint_state.position.resize(5);
+  // 	joint_state.name.resize(5);
+  // 	joint_state.name[0] = "base_to_base";
+  //   joint_state.name[1] = "base_to_elbow_1";
+  //   joint_state.name[2] = "elbow_1_to_elbow_2";
+  //   joint_state.name[3] = "elbow_2_to_elbow_3";
+  //   joint_state.name[4] = "elbow_3_to_end_eff";
 
- //    printf("Got here_3\n");
- //    for(int i=0; i<result.data.size(); i++){
- //    	joint_state.position[i] = result(i);
- //    }
+  //   printf("Got here_3\n");
+  //   for(int i=0; i<result.data.size(); i++){
+  //   	joint_state.position[i] = result(i);
+  //   }
 
- //    ros::Rate loop_rate(10);
- //    printf("Got here_4\n");
- //    //command the robot to move
+	// 	//joint_state.position[3] =-1*(abs(joint_state.position[1]) - abs(joint_state.position[2]));
+	// 	cout<<joint_state.position[3]<<endl;
+	// 	ros::Rate loop_rate(10);
+	// 	printf("Got here_4\n");
+  //   //command the robot to move
 
- //    while (ros::ok()){
- //    	joint_state.header.stamp = ros::Time::now();
- //    	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "pose"));
- //    	ik.joint_pub.publish(joint_state);
- //    	ros::spinOnce();
+  //   while (ros::ok()){
+  //   	joint_state.header.stamp = ros::Time::now();
+  //   	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "pose"));
+  //   	joint_pub.publish(joint_state);
+  //   	ros::spinOnce();
 	//     loop_rate.sleep();
- //    } 
+  //   } 
 
 
-	// ros::spin();
+// 	// ros::spin();
 	return 0;
 	
 }

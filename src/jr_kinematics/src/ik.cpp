@@ -16,8 +16,6 @@
 using namespace std;
 using namespace hebi;
 
-#define NUM_JOINTS (4)
-
 void check_jnts(Eigen::VectorXd jnts) {
 	if ((jnts[0] <= -M_PI   || jnts[0] >= M_PI)   ||
 		(jnts[1] <= -M_PI/2 || jnts[1] >= M_PI/2) ||
@@ -29,7 +27,7 @@ void check_jnts(Eigen::VectorXd jnts) {
 	}
 }
 
-motion::motion(std::string robot_desc_string) {
+bool motion::load_groups(){
 	/* Start the broadcasting to the arm */
 	group = lookup.getGroupFromNames(
 		{ "JollyRoger Arm" },
@@ -46,7 +44,12 @@ motion::motion(std::string robot_desc_string) {
 	}
 	group->setCommandLifetimeMs(1000);
 	cout<<group_hand->size()<<endl;
-	hebi_feedback();
+
+}
+motion::motion(std::string robot_desc_string) {
+	
+	load_groups();
+	hebi_feedback_arm();
 
 	//check_jnts(hebi_feedback());
 
@@ -58,8 +61,8 @@ motion::motion(std::string robot_desc_string) {
 	// ll(2)=-0.785398163 ; ul(2)=2.0;
 	// ll(3)=-3.14 ; ul(3)=3.14;
 	// ll(4)=-3.14 ; ul(4)=3.14;
-	ll(0)=-1.57 ; ul(0)=1.57;
-	ll(1)= -3.14 ; ul(1)=2.4;
+	ll(0)=-3.14 ; ul(0)=3.14;
+	ll(1)= 0.35 ; ul(1)=3.14;
 	ll(2)=-3.14 ; ul(2)=3.14;
 	ll(3)=-3.14 ; ul(3)=3.14;
 	ll(4)=-3.14 ; ul(4)=3.14;
@@ -75,34 +78,48 @@ motion::motion(std::string robot_desc_string) {
 	
 	/* Seed for trac-ik*/
 	joint_angle_track.resize(5);
-	joint_angle_track[0] = 0.0590396 ;
-	joint_angle_track[1] =  2.17705 ;
-	joint_angle_track[2] = 2.71345 ;
-	joint_angle_track[3] = 0.581935 ;
-	joint_angle_track[4] = 0.0;
+	// joint_angle_track[0] = 0.0590396 ;
+	// joint_angle_track[1] =  2.17705 ;
+	// joint_angle_track[2] = 2.71345 ;
+	// joint_angle_track[3] = 0.581935 ;
+	// joint_angle_track[4] = 0.0;
+
+	joint_angle_track[0] =  -1.378721 ;
+	joint_angle_track[1] =  1.34551 ;
+	joint_angle_track[2] =  0.609537 ;
+	joint_angle_track[3] =  -1.9422 ;
+	joint_angle_track[4] =  0.203068;
 
 	/* Horizontal Waypoint for the trajectory */
 	waypoint_h.resize(5);
-	waypoint_h(0) = -0.704595; 
-	waypoint_h(1) =    2.03822; 
-	waypoint_h(2) =    2.37278; 
-	waypoint_h(3) =    0.52097; 
-	waypoint_h(4) = -0.0360714; 
+	waypoint_h(0) = -1.50495; 
+	waypoint_h(1) =  1.95559; 
+	waypoint_h(2) =  2.08121; 
+	waypoint_h(3) =  0.24333;
+	waypoint_h(4) =  0.256375;
 
+	/* Vertical waypoint for the trajectory*/
+	
 	waypoint_v.resize(5);
-	waypoint_v(0) = -1.378721; 
-	waypoint_v(1) = 1.34551; 
-	waypoint_v(2) = 0.609537; 
-	waypoint_v(3) = -1.9422; 
-	waypoint_v(4) = 0.203068; 
+
+	waypoint_v(0) = -0.463527; 
+	waypoint_v(1) =  2.09806; 
+	waypoint_v(2) = 1.99489; 
+	waypoint_v(3) = -1.53725;
+	waypoint_v(4) = 0.0687954;
 
 	/* Homing position in Joint Angles*/
 	homing.resize(5);
+	   
+
 	homing(0) = 0.0590396;
 	homing(1) =  2.17705;
 	homing(2) = 2.71345;
 	homing(3) = 0.581935;
 	homing(4) = 0.0;
+
+
+	/**/ 
 	tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI/2,0); // x-vertical - point staight to the device
 	orient_h.x = in_q.x();orient_h.y = in_q.y();
 	orient_h.z = in_q.z();orient_h.w = in_q.w();
@@ -112,9 +129,12 @@ motion::motion(std::string robot_desc_string) {
 	orient_v.z = in_q_v.z();orient_v.w = in_q_v.w();
 
 
-	KDL::Vector linear(0,0,0); 
-	KDL::Vector angular(0.174533,0.174533,0);
-	tolerances.vel = linear; tolerances.rot = angular;
+	//KDL::Vector linear(0,0,0);
+	//KDL::Vector angular(0.349066, 0.349066, 0.349066);
+	KDL::Vector angular(0.05, 0.05, 3.14);
+	tolerances_h.vel = KDL::Vector(0.05,0,0); tolerances_h.rot = angular;
+	tolerances_v.vel = KDL::Vector(0.0,0, 0.05);
+	tolerances_v.rot = KDL::Vector(0.05, 0.05, 3.14);
 }
 
 
@@ -125,18 +145,18 @@ KDL::Frame motion::getFK(KDL::JntArray joints){
 	fk_solver.JntToCart(joints,pose);
 	double x,y,z,w;
 	std::cout<<pose.p.x() <<  " " << pose.p.y() << " " << pose.p.z() <<endl;
-	//cout<<target_pose.position.x << " "<< target_pose.position.y  <<" "<<target_pose.position.z <<endl;
+	
 	pose.M.GetQuaternion(x,y,z,w); 
 	std::cout<< x << " " << y << " " <<z << " " <<w<<endl;
 	return(pose);
 }
 
-
-KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){ 
+KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose, int dev_orient)
+{
 	//valid = tracik_solver->getKDLChain(chain);
 	KDL::Vector posit(target_pose.position.x, target_pose.position.y, target_pose.position.z);
-	KDL::Rotation orient = KDL::Rotation::Quaternion(target_pose.orientation.x, target_pose.orientation.y,
-													 target_pose.orientation.z, target_pose.orientation.w);
+	tf::Quaternion in_q = tf::createQuaternionFromRPY(M_PI / 2, 0, 0);
+	KDL::Rotation orient = KDL::Rotation::Quaternion(in_q.x(), in_q.y(), in_q.z(), in_q.w());
 
 	KDL::Frame end_effector_pose(orient,posit);
 	KDL::JntArray nominal(chain.getNrOfJoints());
@@ -144,8 +164,20 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 	for (uint j=0; j<nominal.data.size(); j++ ) {
 		nominal(j) = joint_angle_track[j];
 	}
+	int rc; 
+	switch(dev_orient){
+		case 0 : {
+			ROS_INFO("looking down");
+			rc = tracik_solver->CartToJnt(nominal, end_effector_pose, result, tolerances_v);
+			break;
+		}
+		case 1: {
+			rc = tracik_solver->CartToJnt(nominal, end_effector_pose, result, tolerances_h);
+			break;
+		}
 
-	int rc=tracik_solver->CartToJnt(nominal,end_effector_pose,result, tolerances);
+	}
+	
 	if (rc > 0) {
 
 		ROS_INFO("ik succeed");
@@ -158,155 +190,58 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose){
 		
 	}
 	else {
-		ROS_INFO("ik failed");
+		ROS_FATAL("ik failed");
+		result(0) = nan;
 	}
 	std::cout << "rc:" << rc << std::endl;
-
-
+	switch(dev_orient){
+	case 0 : {
+						
+						result(3) = -1 * (abs(result(1)) - abs(result(2))) -1.57;
+						break; 
+						}
+	case 1:
+						{
+						result(3) = -1 * (abs(result(1)) - abs(result(2)));
+						break;
+						}
+	}
 	return(result);
-
 }
 
 /* MOTION: to_homing */
 bool motion::to_homing(){ 
 	ROS_INFO("Homing the robot"); 
-	const double nan = std::numeric_limits<float>::quiet_NaN();
-	Eigen::VectorXd current_position = hebi_feedback();
+	//const double nan = std::numeric_limits<float>::quiet_NaN();
+	Eigen::VectorXd current_position = hebi_feedback_arm();
 	int num_points=3;
 
 	Eigen::MatrixXd positions(NUM_JOINTS, num_points);
 	Eigen::MatrixXd velocities(NUM_JOINTS, num_points);
 	Eigen::MatrixXd accelerations(NUM_JOINTS, num_points);
 
-	positions << current_position[0], homing(0),homing(0),
-	             current_position[1], homing(1),homing(1),
-	             current_position[2], homing(2),homing(2),
-	             current_position[3], homing(3),homing(3);
-
+	for (int i = 0; i < NUM_JOINTS; i++)
+	{
+		positions.block(i, 0, 1, num_points) << current_position[i], homing(i), homing(i);
+		velocities.block(i, 0, 1, num_points) << 0, nan, 0;
+		accelerations.block(i, 0, 1, num_points) << 0, nan, 0;
+	}
 	
-	velocities << 0, nan, 0,
-                  0, nan, 0,
-                  0, nan, 0,
-                  0, nan, 0;
-
-    accelerations << 0, nan, 0,
-                     0, nan, 0,
-                     0, nan, 0,
-                     0, nan, 0;
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
-	time << 0, 8, 9;
+	time << 0, 5, 6;
 
-	// Define trajectory
-	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
-
-
-	hebi::GroupCommand hand_cmd(group_hand->size());
-	hebi::GroupCommand cmd(NUM_JOINTS);
-	double period = 0.01;
-	double duration = trajectory->getDuration();
-	Eigen::VectorXd pos_cmd(NUM_JOINTS);
-	Eigen::VectorXd vel_cmd(NUM_JOINTS);
-	Eigen::VectorXd pos_cmd_hand(group_hand->size());
-	pos_cmd_hand[0] = homing(4);
-	reset_hold();
-
-	for (double t = 0; t < duration; t += period)
-	{
-	  // Pass "nullptr" in to ignore a term.
-	  trajectory->getState(t, &pos_cmd, &vel_cmd, nullptr);
-	  //hand_traj->getState(t, &pos_cmd_hand, &vel_cmd_hand, nullptr);
-	  cmd.setPosition(pos_cmd);
-	  cmd.setVelocity(vel_cmd);
-	  hand_cmd.setPosition(pos_cmd_hand);
-	  group->sendCommand(cmd);
-	  group_hand->sendCommand(hand_cmd);
-	  std::this_thread::sleep_for(std::chrono::milliseconds((long int) (period * 1000)));
-	}
-
-	// after last iteration, the cmd should be hold target
-	set_hold();
-
-	/* Hold position in background */
-	std::thread t([pos_cmd, pos_cmd_hand, period, this](){
-		ROS_INFO("hold position thread");
-		while (should_hold_pos()) {
-			hebi::GroupCommand hold_cmd(NUM_JOINTS);
-			hold_cmd.setPosition(pos_cmd);
-			group->sendCommand(hold_cmd);
-
-			hebi::GroupCommand hand_hold_cmd(1);
-			hand_hold_cmd.setPosition(pos_cmd_hand);
-			//group_hand->sendCommand(hand_hold_cmd);
-
-			std::this_thread::sleep_for(
-				std::chrono::milliseconds((long int) (period * 1000)));
-		}
-		ROS_INFO("hold position loop end");
-	});
-
-	t.detach();
-	
-	return true;
+	bool execute = exec_traj(time,  positions, velocities,  accelerations);
+	at_home = true;
+	return execute;
 }
 
-/* MOTION: exec_traj */
-bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold){
-
-	// Define nan variable for readability below
-	ROS_INFO("Executing Traj\n");
-	const double nan = std::numeric_limits<float>::quiet_NaN();
-	int num_points=4;
-	Eigen::VectorXd waypoint;
-	double jammer_rot = init_rot*M_PI/180;
-	switch(device_orient){
-		case 0: {
-			ROS_INFO("orient_v");
-			target_pose.orientation = orient_v; 
-			waypoint = waypoint_v; 
-			break; 
-		}
-		case 1: {
-			ROS_INFO("orient_h");
-			target_pose.orientation = orient_h; 
-			waypoint = waypoint_h; 
-			break;
-		}
-	}
-	KDL::JntArray target_position = getIK(target_pose);
-
-	bool homed = to_homing();
-	ROS_INFO("Finshed to_homing\n");
-	Eigen::VectorXd current_position = hebi_feedback();
-	
-	Eigen::MatrixXd positions(NUM_JOINTS,num_points);
-	Eigen::MatrixXd velocities(NUM_JOINTS,num_points);
-	Eigen::MatrixXd accelerations(NUM_JOINTS,num_points);
 
 
-
-	positions << current_position[0], homing(0), waypoint(0), target_position(0),        
-             	 current_position[1], homing(1), waypoint(1), target_position(1),
-             	 current_position[2], homing(2), waypoint(2), target_position(2),        
-             	 current_position[3], homing(3), waypoint(3), target_position(3);
-
-	velocities << 0, nan, nan, 0,
-                  0, nan, nan, 0,
-                  0, nan, nan, 0,
-                  0, nan, nan, 0;
-
-    accelerations << 0, nan, nan, 0,
-                     0, nan, nan, 0,
-                     0, nan, nan, 0,
-                     0, nan, nan, 0;
-
-	// The times to reach each waypoint (in seconds)
-	Eigen::VectorXd time(num_points);
-	// time << 0, 15, 25, 33;
-	time << 0, 3, 17, 27;
-
+bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations){
 	// Define trajectory
 	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
+
 	// Send trajectory
 	hebi::GroupCommand cmd(NUM_JOINTS);
 	hebi::GroupCommand hand_cmd(group_hand->size());
@@ -315,9 +250,11 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 	Eigen::VectorXd pos_cmd(NUM_JOINTS);
 	Eigen::VectorXd vel_cmd(NUM_JOINTS);
 
-	// Send jammer command 
+	// Send jammer command
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
+	Eigen::VectorXd vel_cmd_hand(group_hand->size());
 	pos_cmd_hand[0] = jammer_rot;
+	vel_cmd_hand << 1.0;
 
 	/* Break position holding before sending next command */
 	reset_hold();
@@ -330,125 +267,242 @@ bool motion::exec_traj(geometry_msgs::Pose target_pose, int init_rot, int device
 		cmd.setPosition(pos_cmd);
 		cmd.setVelocity(vel_cmd);
 		hand_cmd.setPosition(pos_cmd_hand);
+		hand_cmd.setVelocity(vel_cmd_hand);
 		group->sendCommand(cmd);
 		group_hand->sendCommand(hand_cmd);
 		std::this_thread::sleep_for(
-			std::chrono::milliseconds((long int) (period * 1000)));
+				std::chrono::milliseconds((long int)(period * 1000)));
 	}
-
+	at_home = false;
 	// after last iteration, the cmd should be hold target
-	if (hold) {
-		set_hold();
-	}
+	set_hold(pos_cmd);
 
 	/* Hold position in background */
-	std::thread t([pos_cmd, pos_cmd_hand, period, this](){
+	std::thread t([pos_cmd, pos_cmd_hand, period, this]() {
 		ROS_INFO("hold position thread");
-		while (should_hold_pos()) {
+		while (should_hold_pos())
+		{
 			hebi::GroupCommand hold_cmd(NUM_JOINTS);
-			hold_cmd.setPosition(pos_cmd);
+			hold_cmd.setPosition(arm_hold_pos_target);
 			group->sendCommand(hold_cmd);
-			std::this_thread::sleep_for(
-				std::chrono::milliseconds((long int) (period * 1000)));
+			// std::this_thread::sleep_for(
+			// 		std::chrono::milliseconds((long int)(period * 1000)));
 		}
 		ROS_INFO("hold position loop end");
 	});
 
 	t.detach();
-	
+	// if(!at_home){
+	// 	homed = to_homing();
+	// }
 	return true;
+}
 
+/* MOTION: exec_arm */
+bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold)
+{
+
+	// Define nan variable for readability below
+	ROS_INFO("Executing Arm\n");
+	//const double nan = std::numeric_limits<float>::quiet_NaN();
+	int num_points=3;
+	Eigen::VectorXd waypoint;
+	jammer_rot = init_rot*M_PI/180;
+	switch (device_orient)
+	{
+	case 0:
+	{
+		//target_pose.orientation = orient_v;
+		waypoint = waypoint_v;
+		break; 
+		}
+		case 1: {
+			
+			//target_pose.orientation = orient_h; 
+			waypoint = waypoint_h; 
+			break;
+		}
+	}
+	KDL::JntArray target_position = getIK(target_pose, device_orient);
+	if(target_position(0) == nan){ 
+		return false;
+	}
+	bool homed;
+
+	
+	if(!at_home){
+		ROS_INFO("Homing");
+		homed = to_homing();
+		ROS_INFO("Finshed to_homing\n");
+	}
+	Eigen::VectorXd current_position = hebi_feedback_arm();
+	
+	Eigen::MatrixXd positions(NUM_JOINTS,num_points);
+	Eigen::MatrixXd velocities(NUM_JOINTS,num_points);
+	Eigen::MatrixXd accelerations(NUM_JOINTS,num_points);
+
+	for (int i = 0; i < NUM_JOINTS; i++)
+	{
+		positions.block(i, 0, 1, num_points) << current_position[i], waypoint(i), target_position(i);
+		velocities.block(i, 0, 1, num_points) << 0, nan, 0;
+		accelerations.block(i, 0, 1, num_points) << 0, nan, 0;
+	}
+
+	
+			// The times to reach each waypoint (in seconds)
+	Eigen::VectorXd time(num_points);
+	// time << 0, 15, 25, 33;
+	time << 0, 17, 27;
+
+	bool execute = exec_traj(time, positions, velocities, accelerations);
+	Eigen::VectorXd last_correction = hebi_feedback_arm();
+	double elbow_3; 
+	// Last Elbow 3 correction
+	switch (device_orient)
+	{
+	case 0:
+	{
+		elbow_3 = -1 * (abs(last_correction(1)) - abs(last_correction(2))) - 1.57 + 0.174533;
+		break;
+	}
+	case 1:
+	{
+		elbow_3 = -1 * (abs(last_correction(1)) - abs(last_correction(2))) + 0.174533;
+		break;
+	}
+	}
+	ROS_INFO("Last correction");
+	Eigen::MatrixXd correct_pos(NUM_JOINTS, 2), correct_vel(NUM_JOINTS,2), correct_accel(NUM_JOINTS,2); 
+	Eigen::VectorXd correct_time(2);
+	correct_time<<0,1;
+	cout<<"here"<<endl;
+	for (int i=0; i<NUM_JOINTS; i++){
+		correct_pos.block(i,0,1,2)<<last_correction(i), last_correction(i);
+		correct_vel.block(i,0,1,2) << 0,0;
+		correct_accel.block(i,0,1,2)<< 0,0;
+	}
+	cout<<"hello"<<endl;
+	correct_pos(3,1) = elbow_3;
+	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel);
+
+	return execute_correction;
 }
 
 /* MOTION: exec_hand */
-bool motion::exec_hand(int rotate, int delta_z){
-	Eigen::VectorXd current_pos = hebi_feedback();
+bool motion::exec_hand(int rotate, float delta_z){
+	ROS_INFO("Executing hand");
+	Eigen::VectorXd current_pos = hebi_feedback_arm();
 	double jam_angle = rotate *M_PI/180;
 	double period  = 0.01;
 	Eigen::VectorXd pos(NUM_JOINTS);
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
-	if(delta_z == 0){ 
-		pos_cmd_hand<<jam_angle;
+	Eigen::VectorXd eff_cmd(group_hand->size());
 
+	//Eigen::MatrixXd pos(NUM_JOINTS, 2), vel(NUM_JOINTS,2), accel(NUM_JOINTS, 2); 
+	eff_cmd<<.3;
+	cout<<(delta_z == 0)<<endl;
+	cout << delta_z << endl;
+	if(delta_z == 0){ 
+		ROS_INFO("Rotating hand");
+		pos_cmd_hand<<jam_angle;
+	
 	}
 	else{ 
+		ROS_INFO("Just execute z correction");
 		target_pose.position.z+= delta_z;
-		KDL::JntArray pos_ = getIK(target_pose);
-		pos_cmd_hand << current_pos(4);
-		pos << 	pos_(0), 
-			pos_(1), 
-			pos_(2), 
-			pos_(3);
+		cout<<target_pose.position<<endl; 
+		cout<<target_pose.orientation<<endl;
+		exec_correction(target_pose);
+		return true;
 		
 	}
 
-	// Do not reset hold
-
-	set_hold();
+	// reset_hold();
+	
 	hebi::GroupCommand hand_cmd(group_hand->size());
-	hebi::GroupCommand cmd(NUM_JOINTS);
-	if(delta_z==0){ 
-		
-		hand_cmd.setPosition(pos_cmd_hand); 
-		group_hand->sendCommand(hand_cmd);
-	}
-	else {
-		hand_cmd.setPosition(pos_cmd_hand); 
-		cmd.setPosition(pos);
-		group->sendCommand(cmd); 
-		group_hand->sendCommand(hand_cmd);
-	}
+	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+	cout<<pos_cmd_hand<<endl;
+	hand_cmd.setPosition(pos_cmd_hand); 
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
 
+	
+	while(abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1) {
+		ROS_INFO("sending commands ");
+		cur_hand_angle = hebi_feedback_hand();
+		group_hand->sendCommand(hand_cmd); 
+		
+	}
+	bool homed = to_homing();
+	//set_hold();
 	return true;
 }
 
 /* MOTION: exec_correction */
 bool motion::exec_correction(geometry_msgs::Pose corrected_pose){ 
-	Eigen::VectorXd current_pos = hebi_feedback();
+	ROS_INFO("Correcting end-effector");
+	Eigen::VectorXd current_pos = hebi_feedback_arm();
 	double period  = 0.01;
-	Eigen::VectorXd pos(NUM_JOINTS);
-	Eigen::VectorXd hand_pos(group_hand->size());
-	KDL::JntArray pos_ = getIK(corrected_pose);
-	pos << 	pos_(0), 
-			pos_(1), 
-			pos_(2), 
-			pos_(3);
-	hand_pos<< current_pos(4);
+	//Eigen::VectorXd pos(NUM_JOINTS);
+	Eigen::MatrixXd positions(NUM_JOINTS, 2), velocities(NUM_JOINTS, 2), accelerations(NUM_JOINTS, 2);
+	KDL::JntArray pos_ = getIK(corrected_pose, device_orient);
+	if (pos_(0) == nan)
+	{
+		return false;
+	}
+	for(int i=0; i< NUM_JOINTS; i++){
+		positions.block(i, 0, 1, 2) << current_pos[i], pos_(i);
+		velocities.block(i, 0, 1, 2) << 0,0;
+		accelerations.block(i, 0, 1, 2) << 0,0;
+	}
+	positions(NUM_JOINTS-1, 1) = current_pos[NUM_JOINTS-1];
+	Eigen::VectorXd time(2); 
+	time<<0,2;
 
-	set_hold();
-	hebi::GroupCommand hand_cmd(group_hand->size());
-	hebi::GroupCommand cmd(NUM_JOINTS);
-	hand_cmd.setPosition(hand_pos); 
-	cmd.setPosition(pos);
-	group->sendCommand(cmd); 
-	group_hand->sendCommand(hand_cmd);
+	bool execute = exec_traj(time, positions, velocities, accelerations);
 
-	/* Hold corrected position */
-	std::thread t([pos, period, this]() {
-		ROS_INFO("hold position thread");
-		while (should_hold_pos()) {
-			hebi::GroupCommand hold_cmd(NUM_JOINTS);
-			hold_cmd.setPosition(pos);
-			group->sendCommand(hold_cmd);
-			std::this_thread::sleep_for(
-				std::chrono::milliseconds((long int) (period * 1000)));
-		}
-		ROS_INFO("hold position loop end");
-	});
+	Eigen::VectorXd last_correction = hebi_feedback_arm();
+	double elbow_3;
+	// Last Elbow 3 correction
+	switch (device_orient)
+	{
+	case 0:
+	{
+		elbow_3 = -1 * (abs(last_correction(1)) - abs(last_correction(2))) - 1.57 + 0.174533;
+		break;
+	}
+	case 1:
+	{
+		elbow_3 = -1 * (abs(last_correction(1)) - abs(last_correction(2))) + 0.174533;
+		break;
+	}
+	}
+	ROS_INFO("Last correction");
+	Eigen::MatrixXd correct_pos(NUM_JOINTS, 2), correct_vel(NUM_JOINTS, 2), correct_accel(NUM_JOINTS, 2);
+	Eigen::VectorXd correct_time(2);
+	correct_time << 0, 1;
+	for (int i = 0; i < NUM_JOINTS; i++)
+	{
+		correct_pos.block(i, 0, 1, 2) << last_correction(i), last_correction(i);
+		correct_vel.block(i, 0, 1, 2) << 0, 0;
+		correct_accel.block(i, 0, 1, 2) << 0, 0;
+	}
+	correct_pos(3, 1) = elbow_3;
+	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel);
 
-	t.detach();
-	return true;
-
-
+	return execute_correction;
 }
 
 void motion::reset_hold(void) {
 	ROS_INFO("reset_hold()");
 	should_hold_position = false;
+	std::this_thread::sleep_for(
+		std::chrono::milliseconds((long int)(500)));
 }
 
-void motion::set_hold(void) {
+void motion::set_hold(Eigen::VectorXd target) {
 	ROS_INFO("set_hold()");
+	arm_hold_pos_target = target;
 	should_hold_position = true;
 }
 
@@ -456,14 +510,28 @@ bool motion::should_hold_pos(void) {
 	return should_hold_position;
 }
 
-Eigen::VectorXd motion::hebi_feedback(){ 
-	group->setFeedbackFrequencyHz(5);
+
+/* Get back positions of the hand*/
+Eigen::VectorXd motion::hebi_feedback_hand(){ 
+	group_hand->setFeedbackFrequencyHz(10);
+	GroupFeedback group_fbk_hand(group_hand->size());
+	if ( group_hand->getNextFeedback(group_fbk_hand))
+	{
+		std::cout << "Got feedback From hand. Positions are: " << std::endl << group_fbk_hand.getPosition() << std::endl;
+		return(group_fbk_hand.getPosition());
+	}
+	group_hand->clearFeedbackHandlers();
+}
+
+/* Get back positions of the arm */
+Eigen::VectorXd motion::hebi_feedback_arm(){ 
+	group->setFeedbackFrequencyHz(10);
 	GroupFeedback group_fbk(group->size());
-	if (group->getNextFeedback(group_fbk))
+	if (group->getNextFeedback(group_fbk) )
 	{
 		std::cout << "Got feedback. Positions are: " << std::endl << group_fbk.getPosition() << std::endl;
 		return(group_fbk.getPosition());
 	}
 	group->clearFeedbackHandlers();
-
+	
 }
