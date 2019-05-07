@@ -92,11 +92,20 @@ motion::motion(std::string robot_desc_string) {
 
 	/* Horizontal Waypoint for the trajectory */
 	waypoint_h.resize(5);
-	waypoint_h(0) = -1.50495; 
-	waypoint_h(1) =  1.95559; 
-	waypoint_h(2) =  2.08121; 
-	waypoint_h(3) =  0.24333;
-	waypoint_h(4) =  0.256375;
+	
+  
+  
+ 
+ 
+ 
+ 
+
+
+	waypoint_h(0) = -0.461134; 
+	waypoint_h(1) =  2.02762; 
+	waypoint_h(2) =  2.60264; 
+	waypoint_h(3) = 0.697351;
+	waypoint_h(4) = 0.0;
 
 	/* Vertical waypoint for the trajectory*/
 	
@@ -111,14 +120,17 @@ motion::motion(std::string robot_desc_string) {
 	/* Homing position in Joint Angles*/
 	homing.resize(5);
 	   
-
-	homing(0) = 0.0590396;
-	homing(1) =  2.17705;
-	homing(2) = 2.71345;
-	homing(3) = 0.581935;
+	homing(0) = 0.0499082;
+	homing(1) = 2.33726;
+	homing(2) = 2.94236;
+	homing(3) = 0.729311;
 	homing(4) = 0.0;
 
 
+	last_arm_hold_pos.resize(NUM_JOINTS); 
+	for(int i=0; i<NUM_JOINTS; i++){
+		last_arm_hold_pos(i) = homing(i);
+	}
 	/**/ 
 	tf::Quaternion in_q = tf::createQuaternionFromRPY(0,M_PI/2,0); // x-vertical - point staight to the device
 	orient_h.x = in_q.x();orient_h.y = in_q.y();
@@ -196,14 +208,14 @@ KDL::JntArray motion::getIK(geometry_msgs::Pose target_pose, int dev_orient)
 	std::cout << "rc:" << rc << std::endl;
 	switch(dev_orient){
 	case 0 : {
-						
-						result(3) = -1 * (abs(result(1)) - abs(result(2))) -1.57;
-						break; 
+
+		result(3) = -1 * (abs(result(1)) - abs(result(2))) - 1.57 + 0.174533;
+		break; 
 						}
 	case 1:
 						{
-						result(3) = -1 * (abs(result(1)) - abs(result(2)));
-						break;
+		result(3) = -1 * (abs(result(1)) - abs(result(2))) + 0.174533;
+		break;
 						}
 	}
 	return(result);
@@ -230,7 +242,7 @@ bool motion::to_homing(){
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
 	time << 0, 5, 6;
-
+	
 	bool execute = exec_traj(time,  positions, velocities,  accelerations);
 	at_home = true;
 	return execute;
@@ -274,9 +286,10 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::M
 				std::chrono::milliseconds((long int)(period * 1000)));
 	}
 	at_home = false;
+	
 	// after last iteration, the cmd should be hold target
 	set_hold(pos_cmd);
-
+	last_arm_hold_pos = pos_cmd;
 	/* Hold position in background */
 	std::thread t([pos_cmd, pos_cmd_hand, period, this]() {
 		ROS_INFO("hold position thread");
@@ -343,7 +356,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 
 	for (int i = 0; i < NUM_JOINTS; i++)
 	{
-		positions.block(i, 0, 1, num_points) << current_position[i], waypoint(i), target_position(i);
+		positions.block(i, 0, 1, num_points) << last_arm_hold_pos[i], waypoint(i), target_position(i);
 		velocities.block(i, 0, 1, num_points) << 0, nan, 0;
 		accelerations.block(i, 0, 1, num_points) << 0, nan, 0;
 	}
@@ -352,7 +365,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 			// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
 	// time << 0, 15, 25, 33;
-	time << 0, 17, 27;
+	time << 0, 10, 20;
 
 	bool execute = exec_traj(time, positions, velocities, accelerations);
 	Eigen::VectorXd last_correction = hebi_feedback_arm();
@@ -377,7 +390,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 	correct_time<<0,1;
 	cout<<"here"<<endl;
 	for (int i=0; i<NUM_JOINTS; i++){
-		correct_pos.block(i,0,1,2)<<last_correction(i), last_correction(i);
+		correct_pos.block(i,0,1,2)<<last_arm_hold_pos(i), last_arm_hold_pos(i);
 		correct_vel.block(i,0,1,2) << 0,0;
 		correct_accel.block(i,0,1,2)<< 0,0;
 	}
@@ -412,7 +425,7 @@ bool motion::exec_hand(int rotate, float delta_z){
 		target_pose.position.z+= delta_z;
 		cout<<target_pose.position<<endl; 
 		cout<<target_pose.orientation<<endl;
-		exec_correction(target_pose);
+		exec_correction(target_pose, 0);
 		return true;
 		
 	}
@@ -439,10 +452,11 @@ bool motion::exec_hand(int rotate, float delta_z){
 }
 
 /* MOTION: exec_correction */
-bool motion::exec_correction(geometry_msgs::Pose corrected_pose){ 
+bool motion::exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees){ 
 	ROS_INFO("Correcting end-effector");
 	Eigen::VectorXd current_pos = hebi_feedback_arm();
 	double period  = 0.01;
+	double y_rad = current_pos(0) + y_degrees*M_PI/180;
 	//Eigen::VectorXd pos(NUM_JOINTS);
 	Eigen::MatrixXd positions(NUM_JOINTS, 2), velocities(NUM_JOINTS, 2), accelerations(NUM_JOINTS, 2);
 	KDL::JntArray pos_ = getIK(corrected_pose, device_orient);
@@ -451,11 +465,12 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose){
 		return false;
 	}
 	for(int i=0; i< NUM_JOINTS; i++){
-		positions.block(i, 0, 1, 2) << current_pos[i], pos_(i);
+		positions.block(i, 0, 1, 2) << last_arm_hold_pos[i], pos_(i);
 		velocities.block(i, 0, 1, 2) << 0,0;
 		accelerations.block(i, 0, 1, 2) << 0,0;
 	}
 	positions(NUM_JOINTS-1, 1) = current_pos[NUM_JOINTS-1];
+	positions(0,1) = y_rad;
 	Eigen::VectorXd time(2); 
 	time<<0,2;
 
@@ -483,7 +498,7 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose){
 	correct_time << 0, 1;
 	for (int i = 0; i < NUM_JOINTS; i++)
 	{
-		correct_pos.block(i, 0, 1, 2) << last_correction(i), last_correction(i);
+		correct_pos.block(i, 0, 1, 2) << last_arm_hold_pos(i), last_arm_hold_pos(i);
 		correct_vel.block(i, 0, 1, 2) << 0, 0;
 		correct_accel.block(i, 0, 1, 2) << 0, 0;
 	}

@@ -37,7 +37,7 @@ public:
 	/* Execute arm */
 	bool exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
 	/* Execute correction */
-	bool exec_correction(geometry_msgs::Pose corrected_pose); 
+	bool exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees); 
 	/* Execute the latest traj */
 	bool exec_hand(int rotate, float delta_z);
 	/* Break position holding after traj execution */
@@ -90,6 +90,7 @@ private:
 	double jammer_rot;
 
 	Eigen::VectorXd arm_hold_pos_target;
+	Eigen::VectorXd last_arm_hold_pos;
 };
 
 #endif /* __KINEMATICS_H__ */

@@ -43,11 +43,11 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   m->target_pose.position.z += request.z_offset;
   switch(request.device_orient){
     case 0: { 
-              m->target_pose.position.z += 0.20; 
+              m->target_pose.position.z += 0.185; 
               break;
     }
     case 1: {
-              m->target_pose.position.x -= 0.20;
+              m->target_pose.position.x -= 0.185;
               //m->target_pose.position.y -= 0.051054;
               break; 
     }
@@ -69,11 +69,11 @@ bool correct_arm_callback(CorrectArm::Request  &request,
   execution_in_progress = true;
   // TODO: add correct arm callback
   m->target_pose.position.x += request.delta_pose.position.x;
-  m->target_pose.position.y += request.delta_pose.position.y;
+  //m->target_pose.position.y += request.delta_pose.position.y;
   m->target_pose.position.z += request.delta_pose.position.z;
   std::cout<<m->target_pose.position<<std::endl; 
   std::cout<<m->target_pose.orientation<<std::endl;
-  respond.done = m->exec_correction(m->target_pose);
+  respond.done = m->exec_correction(m->target_pose, request.delta_pose.position.y);
   execution_in_progress = false;
   return true;
 }
