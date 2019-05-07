@@ -1,0 +1,12 @@
+# Service Type for ShipBot arm closed loop control
+# dev_type: Type of device being manipulated
+int8 dev_type
+# dev_id: Used to encode which component of a device (for breaker)
+int8 dev_id
+# dev_ori: Orientation of device rotation plane (if applicable)
+int8 dev_ori
+# approach_angle: Current end effector angle
+int64 approach_angle
+---
+# pose: Pose of device frame to reach to
+geometry_msgs/Pose delta_pose
