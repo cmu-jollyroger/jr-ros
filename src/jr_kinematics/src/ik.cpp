@@ -227,7 +227,7 @@ bool motion::to_homing(){
 	//const double nan = std::numeric_limits<float>::quiet_NaN();
 	Eigen::VectorXd current_position = hebi_feedback_arm();
 	int num_points=3;
-
+	//jammer_rot = 0 ;
 	Eigen::MatrixXd positions(NUM_JOINTS, num_points);
 	Eigen::MatrixXd velocities(NUM_JOINTS, num_points);
 	Eigen::MatrixXd accelerations(NUM_JOINTS, num_points);
@@ -244,11 +244,17 @@ bool motion::to_homing(){
 	time << 0, 5, 6;
 	
 	bool execute = exec_traj(time,  positions, velocities,  accelerations);
+	hebi::GroupCommand hand_cmd(group_hand->size());
+	Eigen::VectorXd pos_cmd_hand(group_hand->size());
+	Eigen::VectorXd vel_cmd_hand(group_hand->size());
+	pos_cmd_hand[0] = 0.0;
+	vel_cmd_hand << 1.0;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(vel_cmd_hand);
+	group_hand->sendCommand(hand_cmd);
 	at_home = true;
 	return execute;
 }
-
-
 
 bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations){
 	// Define trajectory
@@ -406,6 +412,7 @@ bool motion::exec_hand(int rotate, float delta_z){
 	ROS_INFO("Executing hand");
 	Eigen::VectorXd current_pos = hebi_feedback_arm();
 	double jam_angle = rotate *M_PI/180;
+	jammer_rot = jam_angle;
 	double period  = 0.01;
 	Eigen::VectorXd pos(NUM_JOINTS);
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());

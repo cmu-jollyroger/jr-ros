@@ -37,24 +37,28 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   execution_in_progress = true;
   // TODO: add execute arm callback
   //request.target_pose.position.z += request.z_offset;
+  geometry_msgs::Pose temp = request.target_pose;
   ROS_INFO("execute_arm(z=%.3f, off_z=%.3f)",
     request.target_pose.position.z, request.z_offset);
-  m->target_pose = request.target_pose; 
-  m->target_pose.position.z += request.z_offset;
+  
+  temp.position.z += request.z_offset;
   switch(request.device_orient){
     case 0: { 
-              m->target_pose.position.z += 0.185; 
+             temp.position.z += 0.185; 
               break;
     }
     case 1: {
-              m->target_pose.position.x -= 0.185;
+              temp.position.x -= 0.185;
               //m->target_pose.position.y -= 0.051054;
               break; 
     }
   }
   std::cout<<m->target_pose.position<<std::endl;
   m->device_orient = request.device_orient;
-  respond.done = m->exec_arm(m->target_pose, request.intial_rot, request.device_orient, true);
+  respond.done = m->exec_arm(temp, request.intial_rot, request.device_orient, true);
+  if(respond.done){
+    m->target_pose = temp;
+  }
   execution_in_progress = false;
   return true;
 }
@@ -67,13 +71,17 @@ bool correct_arm_callback(CorrectArm::Request  &request,
     return false;
   }
   execution_in_progress = true;
+  geometry_msgs::Pose temp = m->target_pose;
   // TODO: add correct arm callback
-  m->target_pose.position.x += request.delta_pose.position.x;
+  temp.position.x += request.delta_pose.position.x;
   //m->target_pose.position.y += request.delta_pose.position.y;
-  m->target_pose.position.z += request.delta_pose.position.z;
+  temp.position.z += request.delta_pose.position.z;
   std::cout<<m->target_pose.position<<std::endl; 
   std::cout<<m->target_pose.orientation<<std::endl;
-  respond.done = m->exec_correction(m->target_pose, request.delta_pose.position.y);
+  respond.done = m->exec_correction(temp, request.delta_pose.position.y);
+  if (respond.done) { 
+    m->target_pose = temp;
+  }
   execution_in_progress = false;
   return true;
 }
