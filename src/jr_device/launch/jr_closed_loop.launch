@@ -1,0 +1,6 @@
+<launch>
+
+  <node name="webcam1" pkg="jr_device" type="start_streaming.sh">
+  </node>
+
+</launch>
