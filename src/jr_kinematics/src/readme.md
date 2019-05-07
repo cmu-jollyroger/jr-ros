@@ -1,7 +1,7 @@
 
 # Service calls and default tests
 
-Note the x,y,z are in meters and all angless are in degrees
+Note the x,y,z are in meters and all angles are in degrees
 ## For arm points downwards: 
 
 ```
