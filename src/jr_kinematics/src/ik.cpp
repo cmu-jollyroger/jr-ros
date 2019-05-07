@@ -244,14 +244,26 @@ bool motion::to_homing(){
 	time << 0, 5, 6;
 	
 	bool execute = exec_traj(time,  positions, velocities,  accelerations);
+	jammer_rot = 0.0;
 	hebi::GroupCommand hand_cmd(group_hand->size());
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
 	Eigen::VectorXd vel_cmd_hand(group_hand->size());
-	pos_cmd_hand[0] = 0.0;
-	vel_cmd_hand << 1.0;
+	pos_cmd_hand[0] = jammer_rot;
+	vel_cmd_hand << .3;
+	
+	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+	cout << pos_cmd_hand << endl;
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(vel_cmd_hand);
 	group_hand->sendCommand(hand_cmd);
+
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1)
+	{
+		ROS_INFO("sending commands ");
+		cur_hand_angle = hebi_feedback_hand();
+		group_hand->sendCommand(hand_cmd);
+	}
+	
 	at_home = true;
 	return execute;
 }
@@ -272,11 +284,24 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::M
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
 	Eigen::VectorXd vel_cmd_hand(group_hand->size());
 	pos_cmd_hand[0] = jammer_rot;
-	vel_cmd_hand << 1.0;
+	vel_cmd_hand << .3;
+
 
 	/* Break position holding before sending next command */
 	reset_hold();
 
+	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+	cout << pos_cmd_hand << endl;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(vel_cmd_hand);
+	group_hand->sendCommand(hand_cmd);
+
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1)
+	{
+		ROS_INFO("sending commands ");
+		cur_hand_angle = hebi_feedback_hand();
+		group_hand->sendCommand(hand_cmd);
+	}
 	/* Execution of trajectory is blocking */
 	for (double t = 0; t < duration; t += period)
 	{
@@ -284,8 +309,6 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::M
 		trajectory->getState(t, &pos_cmd, &vel_cmd, nullptr);
 		cmd.setPosition(pos_cmd);
 		cmd.setVelocity(vel_cmd);
-		hand_cmd.setPosition(pos_cmd_hand);
-		hand_cmd.setVelocity(vel_cmd_hand);
 		group->sendCommand(cmd);
 		group_hand->sendCommand(hand_cmd);
 		std::this_thread::sleep_for(
@@ -326,7 +349,6 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 	//const double nan = std::numeric_limits<float>::quiet_NaN();
 	int num_points=3;
 	Eigen::VectorXd waypoint;
-	jammer_rot = init_rot*M_PI/180;
 	switch (device_orient)
 	{
 	case 0:
@@ -351,6 +373,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 	
 	if(!at_home){
 		ROS_INFO("Homing");
+		jammer_rot=0;
 		homed = to_homing();
 		ROS_INFO("Finshed to_homing\n");
 	}
@@ -359,7 +382,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 	Eigen::MatrixXd positions(NUM_JOINTS,num_points);
 	Eigen::MatrixXd velocities(NUM_JOINTS,num_points);
 	Eigen::MatrixXd accelerations(NUM_JOINTS,num_points);
-
+	jammer_rot = init_rot * M_PI / 180;
 	for (int i = 0; i < NUM_JOINTS; i++)
 	{
 		positions.block(i, 0, 1, num_points) << last_arm_hold_pos[i], waypoint(i), target_position(i);
@@ -453,7 +476,10 @@ bool motion::exec_hand(int rotate, float delta_z){
 		group_hand->sendCommand(hand_cmd); 
 		
 	}
+
+	ROS_INFO("Sending to homing ");
 	bool homed = to_homing();
+	
 	//set_hold();
 	return true;
 }
