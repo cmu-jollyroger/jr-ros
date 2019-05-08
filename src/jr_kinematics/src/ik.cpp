@@ -456,6 +456,8 @@ bool motion::exec_hand(int rotate, float delta_z){
 		cout<<target_pose.position<<endl; 
 		cout<<target_pose.orientation<<endl;
 		exec_correction(target_pose, 0);
+		ROS_INFO("Sending to homing ");
+		bool homed = to_homing();
 		return true;
 		
 	}
@@ -506,7 +508,7 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees
 	positions(0,1) = y_rad;
 	Eigen::VectorXd time(2); 
 	time<<0,2;
-
+	jammer_rot = app_rot*M_PI/180;
 	bool execute = exec_traj(time, positions, velocities, accelerations);
 
 	Eigen::VectorXd last_correction = hebi_feedback_arm();

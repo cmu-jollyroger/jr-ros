@@ -58,6 +58,7 @@ bool execute_arm_callback(ExecuteArm::Request  &request,
   respond.done = m->exec_arm(temp, request.intial_rot, request.device_orient, true);
   if(respond.done){
     m->target_pose = temp;
+    m->app_rot = request.intial_rot;
   }
   execution_in_progress = false;
   return true;
@@ -81,6 +82,7 @@ bool correct_arm_callback(CorrectArm::Request  &request,
   respond.done = m->exec_correction(temp, request.delta_pose.position.y);
   if (respond.done) { 
     m->target_pose = temp;
+   
   }
   execution_in_progress = false;
   return true;

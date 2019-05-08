@@ -60,6 +60,7 @@ public:
 	geometry_msgs::Quaternion orient_v, orient_h;
 	geometry_msgs::Pose target_pose;
 	int device_orient;
+	double app_rot;
 
 private: 
 	KDL::Chain chain;
@@ -89,7 +90,7 @@ private:
 	const double nan = std::numeric_limits<float>::quiet_NaN();
 	bool at_home = false;
 	double jammer_rot;
-
+	
 	Eigen::VectorXd arm_hold_pos_target;
 	Eigen::VectorXd last_arm_hold_pos;
 };
