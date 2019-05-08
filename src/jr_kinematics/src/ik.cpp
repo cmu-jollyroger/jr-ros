@@ -344,10 +344,11 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions,
 	/* Hold position in background */
 	std::thread t([pos_cmd, pos_cmd_hand, period, this]() {
 		ROS_INFO("hold position thread");
+		hebi::GroupCommand hold_cmd(NUM_JOINTS);
+		hold_cmd.setPosition(arm_hold_pos_target);
 		while (should_hold_pos())
 		{
-			hebi::GroupCommand hold_cmd(NUM_JOINTS);
-			hold_cmd.setPosition(arm_hold_pos_target);
+			
 			group->sendCommand(hold_cmd);
 			// std::this_thread::sleep_for(
 			// 		std::chrono::milliseconds((long int)(period * 1000)));
