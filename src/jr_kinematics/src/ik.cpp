@@ -128,8 +128,9 @@ motion::motion(std::string robot_desc_string) {
 
 	/* Homing position in Joint Angles*/
 	homing.resize(5);
-	   
-	homing(0) = 0.0499082;
+	
+		//homing(0) = 0.0499082;
+	homing(0) = -0.785398163;
 	homing(1) = 2.33726;
 	homing(2) = 2.94236;
 	homing(3) = 0.729311;
