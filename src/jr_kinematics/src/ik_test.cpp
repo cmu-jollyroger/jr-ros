@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 	// // target.position.x = 0.36;
 	// // target.position.y = 0.0;
 	// // target.position.z = 0.70;
-	// target.position.x = 0.49;
+	// target.position.x = 0.4;
 	// target.position.y = 0.0;
 	// target.position.z = 0.60;
 	// // 	/* EXAMPLE 2: XYZ position*/
@@ -58,40 +58,40 @@ int main(int argc, char **argv)
 	// /* Uncomment block below to get RVIZ visualization of target pose and IK*/
 	// printf("Got here_1\n");
 	// tf::TransformBroadcaster br;
-  // 	tf::Transform transform;
-  // 	transform.setOrigin( tf::Vector3(target.position.x, target.position.y, target.position.z) );
-  // 	transform.setRotation(in_q);
+  	// tf::Transform transform;
+  	// transform.setOrigin( tf::Vector3(target.position.x, target.position.y, target.position.z) );
+  	// transform.setRotation(in_q);
   	
-  // 	printf("Got here_2\n");
+  	// printf("Got here_2\n");
   
 
-  // 	sensor_msgs::JointState joint_state;
-  // 	joint_state.position.resize(5);
-  // 	joint_state.name.resize(5);
-  // 	joint_state.name[0] = "base_to_base";
-  //   joint_state.name[1] = "base_to_elbow_1";
-  //   joint_state.name[2] = "elbow_1_to_elbow_2";
-  //   joint_state.name[3] = "elbow_2_to_elbow_3";
-  //   joint_state.name[4] = "elbow_3_to_end_eff";
+  	// sensor_msgs::JointState joint_state;
+  	// joint_state.position.resize(5);
+  	// joint_state.name.resize(5);
+  	// joint_state.name[0] = "base_to_base";
+    // joint_state.name[1] = "base_to_elbow_1";
+    // joint_state.name[2] = "elbow_1_to_elbow_2";
+    // joint_state.name[3] = "elbow_2_to_elbow_3";
+    // joint_state.name[4] = "elbow_3_to_end_eff";
 
-  //   printf("Got here_3\n");
-  //   for(int i=0; i<result.data.size(); i++){
-  //   	joint_state.position[i] = result(i);
-  //   }
+    // printf("Got here_3\n");
+    // for(int i=0; i<result.data.size(); i++){
+    // 	joint_state.position[i] = result(i);
+    // }
 
 	// 	//joint_state.position[3] =-1*(abs(joint_state.position[1]) - abs(joint_state.position[2]));
 	// 	cout<<joint_state.position[3]<<endl;
 	// 	ros::Rate loop_rate(10);
 	// 	printf("Got here_4\n");
-  //   //command the robot to move
+    // //command the robot to move
 
-  //   while (ros::ok()){
-  //   	joint_state.header.stamp = ros::Time::now();
-  //   	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "pose"));
-  //   	joint_pub.publish(joint_state);
-  //   	ros::spinOnce();
+    // while (ros::ok()){
+    // 	joint_state.header.stamp = ros::Time::now();
+    // 	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "base_link", "pose"));
+    // 	joint_pub.publish(joint_state);
+    // 	ros::spinOnce();
 	//     loop_rate.sleep();
-  //   } 
+    // } 
 
 
 // 	// ros::spin();

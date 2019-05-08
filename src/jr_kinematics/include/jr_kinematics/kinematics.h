@@ -43,10 +43,16 @@ public:
 	bool exec_hand(int rotate, float delta_z);
 	/* Break position holding after traj execution */
 	void reset_hold(void);
+	/*  */
+	void reset_hold_hand(void);
 	/* Set should hold position */
 	void set_hold(Eigen::VectorXd target);
+	/*  */
+	void set_hold_hand(double target);
 	/* Check if should hold position */
 	bool should_hold_pos(void);
+	/*  */
+	bool should_hold_hand_pos(void);
 	/* Goes to homing from current pos */
 	bool to_homing();
 	/* Reads in current joint angles */
@@ -54,6 +60,7 @@ public:
 	Eigen::VectorXd hebi_feedback_hand();
 	
 	bool load_groups();
+	bool go_home_next(double curr_angle);
 
 	/* Testing */
 	Eigen::VectorXd homing, waypoint_v, waypoint_h;
@@ -87,12 +94,17 @@ private:
 	std::shared_ptr<Group> group_hand;
 	
 	bool should_hold_position;
+	bool should_hold_hand_position;
 	const double nan = std::numeric_limits<float>::quiet_NaN();
 	bool at_home = false;
 	double jammer_rot;
 	
 	Eigen::VectorXd arm_hold_pos_target;
 	Eigen::VectorXd last_arm_hold_pos;
+
+	double hand_hold_pos_target;
+
+	Eigen::VectorXd waypoint_h_back, waypoint_v_back;
 };
 
 #endif /* __KINEMATICS_H__ */
