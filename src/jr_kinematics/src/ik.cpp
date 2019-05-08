@@ -129,8 +129,7 @@ motion::motion(std::string robot_desc_string) {
 	/* Homing position in Joint Angles*/
 	homing.resize(5);
 	
-		//homing(0) = 0.0499082;
-	homing(0) = -0.785398163;
+	homing(0) = 0.0499082;
 	homing(1) = 2.33726;
 	homing(2) = 2.94236;
 	homing(3) = 0.729311;
@@ -253,7 +252,7 @@ bool motion::to_homing(){
 	Eigen::VectorXd time(num_points);
 	time << 0, 5, 6;
 	
-	bool execute = exec_traj(time,  positions, velocities,  accelerations);
+	bool execute = exec_traj(time,  positions, velocities,  accelerations, false);
 	jammer_rot = 0.0;
 	hebi::GroupCommand hand_cmd(group_hand->size());
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
@@ -278,7 +277,8 @@ bool motion::to_homing(){
 	return execute;
 }
 
-bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations){
+bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, 
+		Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations, bool lock){
 	// Define trajectory
 	auto trajectory = hebi::trajectory::Trajectory::createUnconstrainedQp(time, positions, &velocities, &accelerations);
 
@@ -296,6 +296,7 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::M
 	pos_cmd_hand[0] = jammer_rot;
 	vel_cmd_hand << .3;
 
+	double cur_base_angle = positions(0,0);
 
 	/* Break position holding before sending next command */
 	reset_hold();
@@ -317,6 +318,9 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::M
 	{
 		// Pass "nullptr" in to ignore a term.
 		trajectory->getState(t, &pos_cmd, &vel_cmd, nullptr);
+		if (lock){ 
+			pos_cmd(0) = cur_base_angle;
+		}
 		cmd.setPosition(pos_cmd);
 		cmd.setVelocity(vel_cmd);
 		group->sendCommand(cmd);
@@ -370,8 +374,8 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 		case 1: {
 			
 			//target_pose.orientation = orient_h; 
-			waypoint = waypoint_h; 
-			break;
+		waypoint = waypoint_h; 
+		break;
 		}
 	}
 	KDL::JntArray target_position = getIK(target_pose, device_orient);
@@ -404,9 +408,9 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 			// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
 	// time << 0, 15, 25, 33;
-	time << 0, 10, 20;
+	time << 0, 10, 17;
 
-	bool execute = exec_traj(time, positions, velocities, accelerations);
+	bool execute = exec_traj(time, positions, velocities, accelerations, false);
 	Eigen::VectorXd last_correction = hebi_feedback_arm();
 	double elbow_3; 
 	// Last Elbow 3 correction
@@ -435,7 +439,7 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 	}
 	cout<<"hello"<<endl;
 	correct_pos(3,1) = elbow_3;
-	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel);
+	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel, false);
 
 	return execute_correction;
 }
@@ -444,24 +448,26 @@ bool motion::exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_
 bool motion::exec_hand(int rotate, float delta_z){
 	ROS_INFO("Executing hand");
 	Eigen::VectorXd current_pos = hebi_feedback_arm();
+	ROS_INFO("Hand feedback");
 	Eigen::VectorXd delta_ang = hebi_feedback_hand();
 	double jam_angle = delta_ang(0) + (rotate) *M_PI/180;
 	jammer_rot = jam_angle;
 	double period  = 0.01;
 	Eigen::VectorXd pos(NUM_JOINTS);
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
+	pos_cmd_hand = delta_ang;
 	Eigen::VectorXd eff_cmd(group_hand->size());
 
 	//Eigen::MatrixXd pos(NUM_JOINTS, 2), vel(NUM_JOINTS,2), accel(NUM_JOINTS, 2); 
 	eff_cmd<<.3;
 	cout<<(delta_z == 0)<<endl;
 	cout << delta_z << endl;
-	if(delta_z == 0){ 
+	if(delta_z == 0.0){ 
 		ROS_INFO("Rotating hand");
-		pos_cmd_hand<<jam_angle;
+		pos_cmd_hand(0) = jam_angle;
 	
 	}
-	else{ 
+	else if (delta_z !=0.0){ 
 		ROS_INFO("Just execute z correction");
 		target_pose.position.z+= delta_z;
 		cout<<target_pose.position<<endl; 
@@ -477,12 +483,39 @@ bool motion::exec_hand(int rotate, float delta_z){
 	
 	hebi::GroupCommand hand_cmd(group_hand->size());
 	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+
+	// shake
+	pos_cmd_hand(0) += 5*M_PI/180; 	
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
+
 	cout<<pos_cmd_hand<<endl;
 	hand_cmd.setPosition(pos_cmd_hand); 
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
 
-	
+	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(100)));
+	pos_cmd_hand(0) -= 10 * M_PI / 180;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
+
+	cout << pos_cmd_hand << endl;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
+	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(100)));
+	pos_cmd_hand(0) += 5* M_PI / 180;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
+
+	cout << pos_cmd_hand << endl;
+	hand_cmd.setPosition(pos_cmd_hand);
+	hand_cmd.setVelocity(eff_cmd);
+	group_hand->sendCommand(hand_cmd);
+
 	while(abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1) {
 		ROS_INFO("sending commands ");
 		cur_hand_angle = hebi_feedback_hand();
@@ -507,7 +540,6 @@ bool motion::exec_hand(int rotate, float delta_z){
 	});
 
 	t.detach();
-
 	
 	ROS_INFO("Sending to homing ");
 	bool homed = go_home_next(jam_angle);
@@ -522,7 +554,11 @@ bool motion::go_home_next(double curr_angle){
 	// 	ROS_INFO("Jammer ang");
 	// 	jammer_rot = curr_angle;
 	// }
+	if (curr_angle == nan){
+		jammer_rot  = 0.0;
+	}
 	Eigen::VectorXd waypoint;
+	waypoint = homing;
 	switch(device_orient){
 		case 0: {
 			waypoint = waypoint_v_back;
@@ -549,9 +585,9 @@ bool motion::go_home_next(double curr_angle){
 	positions(0,1) = current_pos[0];
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
-	time << 0, 10, 20;
+	time << 0, 10, 17;
 
-	bool execute = exec_traj(time, positions, velocities, accelerations);
+	bool execute = exec_traj(time, positions, velocities, accelerations,false);
 	
 	hebi::GroupCommand hand_cmd(group_hand->size());
 	Eigen::VectorXd pos_cmd_hand(group_hand->size());
@@ -598,9 +634,16 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees
 	positions(NUM_JOINTS-1, 1) = current_pos[NUM_JOINTS-1];
 	positions(0,1) = y_rad;
 	Eigen::VectorXd time(2); 
-	time<<0,2;
+	time<<0,1;
 	jammer_rot = app_rot*M_PI/180;
-	bool execute = exec_traj(time, positions, velocities, accelerations);
+	bool execute;
+	if (y_degrees == 0){
+	execute = exec_traj(time, positions, velocities, accelerations, true);
+	}
+	else {
+	execute = exec_traj(time, positions, velocities, accelerations, false);
+	}
+	
 
 	Eigen::VectorXd last_correction = hebi_feedback_arm();
 	double elbow_3;
@@ -629,7 +672,7 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees
 		correct_accel.block(i, 0, 1, 2) << 0, 0;
 	}
 	correct_pos(3, 1) = elbow_3;
-	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel);
+	bool execute_correction = exec_traj(correct_time, correct_pos, correct_vel, correct_accel, false);
 
 	return execute_correction;
 }

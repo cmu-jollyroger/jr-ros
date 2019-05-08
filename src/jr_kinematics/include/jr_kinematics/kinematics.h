@@ -33,7 +33,8 @@ public:
 	/* Get pose from joint angles */
 	KDL::Frame getFK(KDL::JntArray joints);
 	/* Execute Traj */
-	bool exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations);
+	bool exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions, 
+	Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations, bool lock);
 	//bool exec_traj_home(Eigen::VectorXd time, Eigen::MatrixXd positions, Eigen::MatrixXd velocities, Eigen::MatrixXd accelerations);
 	/* Execute arm */
 	bool exec_arm(geometry_msgs::Pose target_pose, int init_rot, int device_orient, bool hold);
