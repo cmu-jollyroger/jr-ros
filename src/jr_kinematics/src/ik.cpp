@@ -250,7 +250,7 @@ bool motion::to_homing(){
 	
 	// The times to reach each waypoint (in seconds)
 	Eigen::VectorXd time(num_points);
-	time << 0, 5, 6;
+	time << 0, 4, 5;
 	
 	bool execute = exec_traj(time,  positions, velocities,  accelerations, false);
 	jammer_rot = 0.0;
@@ -265,10 +265,14 @@ bool motion::to_homing(){
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(vel_cmd_hand);
 	group_hand->sendCommand(hand_cmd);
+	Eigen::VectorXd prev_hand_angle = cur_hand_angle; 
+	prev_hand_angle(0) += 1.0; // offset
 
-	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1)
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1 && 
+		  abs(prev_hand_angle(0) - cur_hand_angle(0))> 0.00001) 
 	{
 		ROS_INFO("sending commands ");
+		prev_hand_angle = cur_hand_angle;
 		cur_hand_angle = hebi_feedback_hand();
 		group_hand->sendCommand(hand_cmd);
 	}
@@ -306,10 +310,14 @@ bool motion::exec_traj(Eigen::VectorXd time, Eigen::MatrixXd positions,
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(vel_cmd_hand);
 	group_hand->sendCommand(hand_cmd);
+	Eigen::VectorXd prev_hand_angle = cur_hand_angle;
+	prev_hand_angle(0) += 1.0; // offset
 
-	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1)
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1 &&
+		   abs(prev_hand_angle(0) - cur_hand_angle(0)) > 0.001)
 	{
 		ROS_INFO("sending commands ");
+		prev_hand_angle = cur_hand_angle;
 		cur_hand_angle = hebi_feedback_hand();
 		group_hand->sendCommand(hand_cmd);
 	}
@@ -482,7 +490,7 @@ bool motion::exec_hand(int rotate, float delta_z){
 	// reset_hold();
 	
 	hebi::GroupCommand hand_cmd(group_hand->size());
-	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+	
 
 	// shake
 	pos_cmd_hand(0) += 5*M_PI/180; 	
@@ -515,19 +523,29 @@ bool motion::exec_hand(int rotate, float delta_z){
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
+	Eigen::VectorXd cur_hand_angle = hebi_feedback_hand();
+	Eigen::VectorXd prev_hand_angle = cur_hand_angle;
+	prev_hand_angle(0) += 1.0; // offset
 
-	while(abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1) {
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1 &&
+		   abs(prev_hand_angle(0) - cur_hand_angle(0)) > 0.001)
+	{
 		ROS_INFO("sending commands ");
+		prev_hand_angle = cur_hand_angle;
 		cur_hand_angle = hebi_feedback_hand();
-		group_hand->sendCommand(hand_cmd); 
-		
+		group_hand->sendCommand(hand_cmd);
 	}
 
 	set_hold_hand(jam_angle);
-	std::thread t([pos_cmd_hand, period, this]() {
+	std::thread t([jam_angle, period, this]() {
+		ROS_INFO("Sending to homing ");
+		bool homed = go_home_next(jam_angle);
+		reset_hold_hand();
 		ROS_INFO("hold position thread");
 		hebi::GroupCommand hold_cmd(group_hand->size());
-		hold_cmd.setPosition(pos_cmd_hand);
+		Eigen::VectorXd pos_hand(group_hand->size());
+		pos_hand(0)= 0.0;
+		hold_cmd.setPosition(pos_hand);
 		while (should_hold_pos())
 		{
 			
@@ -538,12 +556,9 @@ bool motion::exec_hand(int rotate, float delta_z){
 		}
 		ROS_INFO("hold position loop end");
 	});
-
 	t.detach();
 	
-	ROS_INFO("Sending to homing ");
-	bool homed = go_home_next(jam_angle);
-	reset_hold_hand();
+	
 	//set_hold();
 	return true;
 }
@@ -601,10 +616,14 @@ bool motion::go_home_next(double curr_angle){
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(vel_cmd_hand);
 	group_hand->sendCommand(hand_cmd);
+	Eigen::VectorXd prev_hand_angle = cur_hand_angle;
+	prev_hand_angle(0) += 1.0; // offset
 
-	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1)
+	while (abs(cur_hand_angle(0) - pos_cmd_hand(0)) > 0.1 &&
+		   abs(prev_hand_angle(0) - cur_hand_angle(0)) > 0.001)
 	{
-		
+		ROS_INFO("sending commands ");
+		prev_hand_angle = cur_hand_angle;
 		cur_hand_angle = hebi_feedback_hand();
 		group_hand->sendCommand(hand_cmd);
 	}
