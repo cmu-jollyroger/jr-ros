@@ -493,7 +493,8 @@ bool motion::exec_hand(int rotate, float delta_z){
 	
 
 	// shake
-	pos_cmd_hand(0) += 5*M_PI/180; 	
+	ROS_INFO("shake one way");
+	pos_cmd_hand(0) += 20*M_PI/180; 	
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
@@ -503,8 +504,9 @@ bool motion::exec_hand(int rotate, float delta_z){
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
 
-	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(100)));
-	pos_cmd_hand(0) -= 10 * M_PI / 180;
+	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(200)));
+	ROS_INFO("shake other way");
+	pos_cmd_hand(0) -= 40 * M_PI / 180;
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
@@ -513,8 +515,8 @@ bool motion::exec_hand(int rotate, float delta_z){
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
-	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(100)));
-	pos_cmd_hand(0) += 5* M_PI / 180;
+	std::this_thread::sleep_for(std::chrono::milliseconds((long int)(200)));
+	pos_cmd_hand(0) += 20* M_PI / 180;
 	hand_cmd.setPosition(pos_cmd_hand);
 	hand_cmd.setVelocity(eff_cmd);
 	group_hand->sendCommand(hand_cmd);
@@ -538,13 +540,11 @@ bool motion::exec_hand(int rotate, float delta_z){
 
 	set_hold_hand(jam_angle);
 	std::thread t([jam_angle, period, this]() {
-		ROS_INFO("Sending to homing ");
-		bool homed = go_home_next(jam_angle);
-		reset_hold_hand();
+		
 		ROS_INFO("hold position thread");
 		hebi::GroupCommand hold_cmd(group_hand->size());
 		Eigen::VectorXd pos_hand(group_hand->size());
-		pos_hand(0)= 0.0;
+		pos_hand(0)= jam_angle;
 		hold_cmd.setPosition(pos_hand);
 		while (should_hold_pos())
 		{
@@ -557,8 +557,10 @@ bool motion::exec_hand(int rotate, float delta_z){
 		ROS_INFO("hold position loop end");
 	});
 	t.detach();
-	
-	
+
+	ROS_INFO("Sending to homing ");
+	bool homed = go_home_next(jam_angle);
+	reset_hold_hand();
 	//set_hold();
 	return true;
 }
