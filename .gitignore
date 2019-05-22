@@ -58,3 +58,5 @@ CATKIN_IGNORE
 # Python ignore files
 *.pyc
 *.npy
+
+imgui.ini
