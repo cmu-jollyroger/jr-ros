@@ -1,12 +1,20 @@
 <launch>
 
+  <!-- Launch locomotion and communication node -->
   <include file="$(find jr_actuation)/launch/jr_actuation.launch"/>
-  <include file="$(find jr_kinematics)/launch/jr_kinematics.launch"/>
+  <!-- Launch arm control node -->
+  <!-- <include file="$(find jr_kinematics)/launch/jr_kinematics.launch"/> -->
+  <!-- Launch closed loop control node and webcam streamer -->
+  <include file="$(find jr_device)/launch/jr_closed_loop.launch"/>
   
-  <node name="vision1" pkg="jr_device" type="jr_device_node.py" output="screen">
-  </node>
+  <!-- <node name="vision1" pkg="jr_device" type="jr_device_node.py" output="screen">
+  </node> -->
 
-  <node pkg="jr_mission" type="jr_mission_node.py" name="mission1">
+  <!-- <node pkg="jr_mission" type="jr_mission_node.py" name="mission1">
+  </node> -->
+
+  <!-- Make arm go to homing position -->
+  <node pkg="rosservice" type="rosservice" name="homing_exec0" args="call --wait /jr_hand_execute_cmd '{rotation: 0, delta_z: 0.0}'" output="screen">
   </node>
 
 </launch>

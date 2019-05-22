@@ -54,8 +54,8 @@ int stationPositions[NUM_STATIONS] =
     10,
 
     10,
-    200,
-    510
+    90,
+    380
   };
 
 int TOF_L_Reading; // left TOF reading
@@ -193,7 +193,7 @@ void calibrate_against_rail(int speed) {
     tgt_vel.linear.y = - TRANSLATION_SPD;
   }
   chassis_move_vel(tgt_vel);
-  wait_ms(500);
+  wait_ms(600);
   chassis_stop();
 }
 
@@ -297,7 +297,7 @@ void __slide_to_station(enum StationID s) {
 void slide_to_station(enum StationID s) {
   __slide_to_station(s);
   calibrate_against_rail(200);
-  wait_ms(2000);
+  wait_ms(3500);
   __slide_to_station(s);
 }
 

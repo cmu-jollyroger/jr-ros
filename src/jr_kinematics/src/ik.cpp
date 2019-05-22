@@ -658,7 +658,7 @@ bool motion::exec_correction(geometry_msgs::Pose corrected_pose, float y_degrees
 	time<<0,1;
 	jammer_rot = app_rot*M_PI/180;
 	bool execute;
-	if (y_degrees == 0){
+	if (y_degrees < 0.1){
 	execute = exec_traj(time, positions, velocities, accelerations, true);
 	}
 	else {

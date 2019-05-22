@@ -1,6 +1,6 @@
 <launch>
 
-  <include file="$(find robot_model)/launch/display.launch">
+  <include file="$(find robot_model)/launch/pub_desc.launch">
   </include>>
 
   <node name="kinematics1" pkg="jr_kinematics" type="jr_kinematics_node" output="screen">
